@@ -1,0 +1,52 @@
+{% set data = load_setup_py_data() %}
+
+package:
+  name: ts-pyilc
+  version: {{ data.get('version') }}
+
+source:
+  path: ../
+
+build:
+  noarch: python
+  script: {{PYTHON}} -m pip install --no-deps --ignore-installed .
+  entry_points:
+
+build:
+  noarch: generic
+  script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
+  entry_points:
+    - ilccli = lsst.ts.pyilc:run
+
+test:
+  requires:
+    - asyncclick
+    - ts-conda-build ==0.5
+    - ts-xml
+    - pymodbus >=3.12.0
+    - parameterized
+  source_files:
+    - python
+    - bin
+    - tests
+    - pyproject.toml
+  commands:
+    - pytest
+
+requirements:
+  host:
+    - python {{ python }}
+    - pip
+    - setuptools_scm
+    - setuptools
+  build:
+    - python {{ python }}
+    - setuptools_scm
+    - setuptools
+    - ts-conda-build ==0.5
+  run:
+    - python {{ python }}
+    - setuptools
+    - setuptools_scm
+    - ts-xml
+    - pymodbus >=3.12.0

@@ -26,6 +26,7 @@ from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
     ILCFunction,
+    ILCMode,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
@@ -49,16 +50,22 @@ class PduTestCase(unittest.TestCase):
             0x12,
             b"\x12\x01\x02\x03\x04\x05",
         ),
+        (
+            0x41,
+            b"\x41\x00\x01",
+        ),
     ]
 
     @parameterized.expand(responses)
     def test_client_decode(self, code: int, frame: bytes) -> None:
+        """Tests PDUs decode and encode methods."""
         server.add_pdu(ServerIDRequest, ServerIDResponse)
         server.add_pdu(ServerStatusRequest, ServerStatusResponse)
+        server.add_pdu(ILCMode, ILCMode)
 
         pdu = self.server.decode(frame)
 
-        assert pdu.encode() == frame
+        assert pdu.encode() == frame[1:]
 
         if pdu.function_code == ILCFunction.REPORT_SERVER_ID:
             assert pdu.unique_id == 0x010203040506
@@ -73,6 +80,12 @@ class PduTestCase(unittest.TestCase):
             assert pdu.mode == 0x01
             assert pdu.status == 0x0203
             assert pdu.faults == 0x0405
+        elif pdu.function_code == ILCFunction.CHANGE_ILC_MODE:
+            assert pdu.mode == 0x0001
+        else:
+            self.fail(
+                f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"
+            )
 
 
 if __name__ == "__main__":

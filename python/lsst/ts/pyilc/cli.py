@@ -26,7 +26,13 @@ import asyncclick as click
 from pymodbus.client import AsyncModbusSerialClient, AsyncModbusTcpClient
 from pymodbus.pdu import ModbusPDU
 
-from . import ServerIDRequest, ServerIDResponse
+from .pdu import (
+    ILCMode,
+    ServerIDRequest,
+    ServerIDResponse,
+    ServerStatusRequest,
+    ServerStatusResponse,
+)
 
 # Setup history file tracking via standard readline
 HISTORY_FILE = os.path.expanduser("~/.ilccli_history")
@@ -44,27 +50,26 @@ if readline and hasattr(readline, "read_history_file"):
         pass
 
 
-# We use a global context dictionary or a container to hold our active client
+# We use a global context dictionary or a container to hold our active client,
+# default address and connection name.
 class CLIContext:
     def __init__(self) -> None:
         self.client = None
         self.address: int = 255
         self.name: str = ""
 
-    async def connect(
-        self, client: AsyncModbusSerialClient | AsyncModbusTcpClient
-    ) -> None:
+    async def connect(self, client: AsyncModbusSerialClient | AsyncModbusTcpClient) -> None:
         await client.connect()
         client.register(ServerIDResponse)
+        client.register(ServerStatusResponse)
+        client.register(ILCMode)
 
         self.client = client
         self.name = str(client)
 
     async def execute(self, request: ModbusPDU) -> ModbusPDU:
         if self.client is None:
-            raise RuntimeError(
-                "Client not connected. Use 'serial' or 'tcp' commands to connect to client."
-            )
+            raise RuntimeError("Client not connected. Use 'serial' or 'tcp' commands to connect to client.")
 
         return await self.client.execute(False, request)
 
@@ -77,9 +82,13 @@ class CLIContext:
 pass_ctx = click.make_pass_decorator(CLIContext, ensure=True)
 
 
+# Group for all ILC commands.
 @click.group()
 def cli() -> None:
     pass
+
+
+# Commands defined click-way.
 
 
 @cli.command()
@@ -89,9 +98,7 @@ async def serial(ctx: CLIContext, port: str) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusSerialClient(port, baudrate=921600))
 
-    click.echo(
-        f"Connected to {port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n"
-    )
+    click.echo(f"Connected to {port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
 
 
 @cli.command()
@@ -102,9 +109,7 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusTcpClient(host, port=port))
 
-    click.echo(
-        f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n"
-    )
+    click.echo(f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
 
 
 @cli.command()
@@ -112,17 +117,45 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
 @pass_ctx
 async def report_server_id(ctx: CLIContext, address: None | int) -> None:
     """Read coils or registers from the server."""
-    server_id = await ctx.execute(
-        ServerIDRequest(dev_id=ctx.address if address is None else address)
-    )
+    server_id = await ctx.execute(ServerIDRequest(dev_id=ctx.address if address is None else address))
     if server_id.isError():
-        click.echo("Error: {server_id}")
+        click.echo(f"Error: {server_id}")
         return
 
-    click.echo(f"Unique ID: {server_id.unique_id}")
+    click.echo(f"Unique ID: {server_id.unique_id} (0x{server_id.unique_id:012X})")
     click.echo(f"ILC Application Type: {server_id.ilc_app_type}")
+    click.echo(f"Network Node Type: 0x{server_id.network_node_type:02X}")
+    click.echo(f"ILC Selected Options: 0x{server_id.ilc_selected_options:02X}")
+    click.echo(f"Network Node Options: {server_id.network_node_options:02X}")
     click.echo(f"Firmware Version: {server_id.major_rev}.{server_id.minor_rev}")
     click.echo(f"Firmware Name: {server_id.firmware_name}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def report_server_status(ctx: CLIContext, address: None | int) -> None:
+    server_status = await ctx.execute(ServerStatusRequest(dev_id=ctx.address if address is None else address))
+    if server_status.isError():
+        click.echo(f"Error: {server_status}")
+        return
+
+    click.echo(f"Mode: {server_status.mode}")
+    click.echo(f"Status: {server_status.status} (0x{server_status.status:04X})")
+    click.echo(f"Faults: {server_status.faults} (0x{server_status.faults:04X})")
+
+
+@cli.command()
+@click.argument("mode", type=int, default=0xFF)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> None:
+    ilc_mode = await ctx.execute(ILCMode(dev_id=ctx.address if address is None else address, new_mode=mode))
+
+    if ilc_mode.isError():
+        click.echo(f"Error: {ilc_mode}")
+
+    click.echo(f"Mode: {ilc_mode.mode}")
 
 
 async def main() -> None:
@@ -149,9 +182,10 @@ async def main() -> None:
 
             # Run the command through the click parser pipeline
             await cli.main(args=args, prog_name="", standalone_mode=False, obj=ctx_obj)
-
         except click.NoSuchOption as e:
             click.echo(f"{e.message}")
+        except RuntimeError as e:
+            click.echo(f"RuntimeError: {str(e)}")
         except click.UsageError as e:
             e.show()
         except click.BadArgumentUsage as e:

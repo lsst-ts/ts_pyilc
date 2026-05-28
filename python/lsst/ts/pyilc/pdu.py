@@ -24,13 +24,13 @@ __all__ = ["ServerIDRequest", "ServerIDResponse"]
 import struct
 from enum import IntEnum
 
-from pymodbus.datastore import ModbusDeviceContext
 from pymodbus.pdu import ModbusPDU
 
 
 class ILCFunction(IntEnum):
     """Modbus Function Codes for M1M3 ILCs based on LTS-646."""
 
+    # ID, status and mode functions
     REPORT_SERVER_ID = 0x11  # 17
     REPORT_SERVER_STATUS = 0x12  # 18
     CHANGE_ILC_MODE = 0x41  # 65
@@ -46,6 +46,12 @@ class ILCFunction(IntEnum):
     READ_MEZZANINE_PRESSURE = 0x77  # 119
     READ_MEZZANINE_ID = 0x78  # 120
     READ_MEZZANINE_STATUS = 0x79  # 121
+
+    # Firmware / memory commands
+    WRITE_APPLICATION_STATES = 0x64  # 100
+    ERASE_APPLICATION = 0x65  # 101
+    WRITE_APPLICATION_PAGE = 0x66  # 102
+    WRITE_VERIFY_APPLICATION = 0x67  # 103
 
     # FA - Pneumatic ILC
     FA_SET_BOOSTER_VALVE_DCA_GAINS = 0x49  # 73
@@ -68,28 +74,22 @@ class ILCFunction(IntEnum):
     READ_MONITOR_SENSORS = 0x54  # 84
 
 
-class ServerIDRequest(ModbusPDU):
-    """Request server ID data."""
-
-    function_code = ILCFunction.REPORT_SERVER_ID
+class ILCRequest(ModbusPDU):
+    """Generic class providing empty encode function - for parameter-less
+    requests."""
 
     def encode(self) -> bytes:
         return b""
 
-    async def update_datastore(self, context: ModbusDeviceContext) -> ModbusPDU:
-        pdu = ServerIDResponse(dev_id=self.dev_id)
 
-        pdu.unique_id = 0x020304
-        pdu.firmware_name = "Simulated ILC!"
+class ServerIDRequest(ILCRequest):
+    """Request ILC ID data."""
 
-        return pdu
+    function_code = ILCFunction.REPORT_SERVER_ID
 
 
 class ServerIDResponse(ModbusPDU):
-    """
-    FC 0x11 (17): Report Server ID
-    Typically a simple request (just the FC) or a response containing ID data.
-    """
+    """Report Server ID response."""
 
     function_code = ILCFunction.REPORT_SERVER_ID
     rtu_byte_count_pos = 0
@@ -148,15 +148,17 @@ class ServerIDResponse(ModbusPDU):
         self.firmware_name = firmware_name.decode()
 
 
-class ServerStatusRequest(ModbusPDU):
-    function_code = ILCFunction.REPORT_SERVER_STATUS
+class ServerStatusRequest(ILCRequest):
+    """Request server status."""
 
-    def encode(self) -> bytes:
-        return b""
+    function_code = ILCFunction.REPORT_SERVER_STATUS
 
 
 class ServerStatusResponse(ModbusPDU):
+    """Report server status response."""
+
     function_code = ILCFunction.REPORT_SERVER_STATUS
+    rtu_frame_size = 5
 
     def __init__(self, dev_id: int = 255):
         super().__init__(dev_id=dev_id)
@@ -172,7 +174,11 @@ class ServerStatusResponse(ModbusPDU):
 
 
 class ILCMode(ModbusPDU):
+    """Both ILC change request and response. The payload is the same, so one
+    class can work for both request and response."""
+
     function_code = ILCFunction.CHANGE_ILC_MODE
+    rtu_frame_size = 2
 
     def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF):
         super().__init__(dev_id=dev_id)

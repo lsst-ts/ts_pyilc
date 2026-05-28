@@ -19,9 +19,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+__all__ = ["ServerIDRequest", "ServerIDResponse"]
+
 import struct
 from enum import IntEnum
 
+from pymodbus.datastore import ModbusDeviceContext
 from pymodbus.pdu import ModbusPDU
 
 
@@ -50,7 +53,7 @@ class ILCFunction(IntEnum):
     FA_FORCE_DEMAND = 0x4B  # 75
     FA_FORCE_AND_STATUS = 0x4C  # 76
 
-    # HP - Electromechanical (Hardpoint) ILC
+    # HP - Electromechanical (Hardpoint) and M2 ILC
     HP_STEP_MOTOR_MOVE = 0x42  # 66
     HP_FORCE_AND_STATUS = 0x43  # 67
 
@@ -61,11 +64,25 @@ class ILCFunction(IntEnum):
     TS_DEMAND = 0x58  # 88
     TS_STATUS = 0x59  # 89
 
+    # M2 - M2 Support System ILC
+    READ_MONITOR_SENSORS = 0x54  # 84
+
 
 class ServerIDRequest(ModbusPDU):
     """Request server ID data."""
 
     function_code = ILCFunction.REPORT_SERVER_ID
+
+    def encode(self) -> bytes:
+        return b""
+
+    async def update_datastore(self, context: ModbusDeviceContext) -> ModbusPDU:
+        pdu = ServerIDResponse(dev_id=self.dev_id)
+
+        pdu.unique_id = 0x020304
+        pdu.firmware_name = "Simulated ILC!"
+
+        return pdu
 
 
 class ServerIDResponse(ModbusPDU):
@@ -94,7 +111,7 @@ class ServerIDResponse(ModbusPDU):
         fn_len = len(self.firmware_name)
 
         res = struct.pack(
-            f">B6s6Bs{fn_len}s",
+            f">B6s6B{fn_len}s",
             fn_len + 12,
             id_bytes,
             self.ilc_app_type,
@@ -103,7 +120,7 @@ class ServerIDResponse(ModbusPDU):
             self.network_node_options,
             self.major_rev,
             self.minor_rev,
-            self.firmware_name,
+            self.firmware_name.encode(),
         )
 
         return res
@@ -133,6 +150,9 @@ class ServerIDResponse(ModbusPDU):
 
 class ServerStatusRequest(ModbusPDU):
     function_code = ILCFunction.REPORT_SERVER_STATUS
+
+    def encode(self) -> bytes:
+        return b""
 
 
 class ServerStatusResponse(ModbusPDU):

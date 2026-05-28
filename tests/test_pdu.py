@@ -58,6 +58,8 @@ class PduTestCase(unittest.TestCase):
 
         pdu = self.server.decode(frame)
 
+        assert pdu.encode() == frame
+
         if pdu.function_code == ILCFunction.REPORT_SERVER_ID:
             assert pdu.unique_id == 0x010203040506
             assert pdu.ilc_app_type == 0x07

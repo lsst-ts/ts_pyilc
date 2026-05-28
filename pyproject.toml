@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 ilccli = "lsst.ts.pyilc.cli:run"
+run_ilcsimulator = "lsst.ts.pyilc.simulator:run"
 
 [tool.setuptools.dynamic]
 version = { attr = "setuptools_scm.get_version" }

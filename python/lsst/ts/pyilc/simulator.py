@@ -19,9 +19,39 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-try:
-    from .version import __version__
-except ImportError:
-    __version__ = "?"
+import asyncio
+import argparse
 
-from .pdu import ServerIDRequest, ServerIDResponse
+from pymodbus.datastore import ModbusServerContext
+from pymodbus.server import StartAsyncTcpServer
+
+from . import ServerIDRequest
+
+
+async def main(host: str, port: int) -> None:
+    store = ModbusServerContext(single=True)
+
+    server = asyncio.create_task(
+        StartAsyncTcpServer(
+            context=store, address=(host, port), custom_pdu=[ServerIDRequest]
+        )
+    )
+
+    await server
+
+
+def run():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--host",
+        default="localhost",
+        type=str,
+        help="Simualtor hostname. Defaults to localhost.",
+    )
+    parser.add_argument(
+        "--port", default=5020, type=int, help="Simulator port. Defaults to 5020"
+    )
+
+    args = parser.parse_args()
+
+    asyncio.run(main(args.host, args.port))

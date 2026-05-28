@@ -16,7 +16,8 @@ build:
   noarch: generic
   script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
   entry_points:
-    - ilccli = lsst.ts.pyilc:run
+    - ilccli = lsst.ts.pyilc.cli:run
+    - run_ilcsimulator = lsst.ts.pyilc.simulator:run
 
 test:
   requires:

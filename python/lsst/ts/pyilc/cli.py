@@ -51,18 +51,22 @@ class CLIContext:
         self.address: int = 255
         self.name: str = ""
 
-    async def connect(self, client: AsyncModbusSerialClient | AsyncModbusTcpClient) -> None:
+    async def connect(
+        self, client: AsyncModbusSerialClient | AsyncModbusTcpClient
+    ) -> None:
         await client.connect()
         client.register(ServerIDResponse)
 
         self.client = client
         self.name = str(client)
 
-    def execute(self, pdu: ModbusPDU) -> ModbusPDU:
+    async def execute(self, request: ModbusPDU) -> ModbusPDU:
         if self.client is None:
-            raise RuntimeError("Client not connected. Use 'serial' or 'tcp' commands to connect to client.")
+            raise RuntimeError(
+                "Client not connected. Use 'serial' or 'tcp' commands to connect to client."
+            )
 
-        return self.client.execute(pdu)
+        return await self.client.execute(False, request)
 
     def disconnect(self) -> None:
         if self.client is not None:
@@ -85,7 +89,9 @@ async def serial(ctx: CLIContext, port: str) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusSerialClient(port, baudrate=921600))
 
-    click.echo(f"Connected to {port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+    click.echo(
+        f"Connected to {port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n"
+    )
 
 
 @cli.command()
@@ -96,15 +102,19 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusTcpClient(host, port=port))
 
-    click.echo(f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+    click.echo(
+        f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n"
+    )
 
 
 @cli.command()
 @click.argument("address", type=int, default=None)
 @pass_ctx
-def report_server_id(ctx: CLIContext, address: None | int) -> None:
+async def report_server_id(ctx: CLIContext, address: None | int) -> None:
     """Read coils or registers from the server."""
-    server_id = ctx.execute(ServerIDRequest(dev_id=ctx.address if address is None else address))
+    server_id = await ctx.execute(
+        ServerIDRequest(dev_id=ctx.address if address is None else address)
+    )
     if server_id.isError():
         click.echo("Error: {server_id}")
         return

@@ -20,10 +20,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import logging
 import os
 
 import asyncclick as click
 from pymodbus.client import AsyncModbusSerialClient, AsyncModbusTcpClient
+from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
@@ -48,6 +50,8 @@ if readline and hasattr(readline, "read_history_file"):
         readline.read_history_file(HISTORY_FILE)
     except FileNotFoundError:
         pass
+
+logging.basicConfig()
 
 
 # We use a global context dictionary or a container to hold our active client,
@@ -92,9 +96,18 @@ def cli() -> None:
 
 
 @cli.command()
+@pass_ctx
+def debug(cts: CLIContext) -> None:
+    """Log every command."""
+    log = logging.getLogger("pymodbus")
+    log.setLevel(logging.DEBUG)
+
+
+@cli.command()
 @click.argument("port", type=str)
 @pass_ctx
 async def serial(ctx: CLIContext, port: str) -> None:
+    """Open connection to serial port."""
     ctx.disconnect()
     await ctx.connect(AsyncModbusSerialClient(port, baudrate=921600))
 
@@ -106,10 +119,19 @@ async def serial(ctx: CLIContext, port: str) -> None:
 @click.argument("port", type=int, default=502)
 @pass_ctx
 async def tcp(ctx: CLIContext, host: str, port: int) -> None:
+    """Connect to TCP/IP bridge."""
     ctx.disconnect()
     await ctx.connect(AsyncModbusTcpClient(host, port=port))
 
     click.echo(f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+
+
+@cli.command()
+@click.argument("address", type=int)
+@pass_ctx
+def address(ctx: CLIContext, address: int) -> None:
+    """Change default address."""
+    ctx.address = address
 
 
 @cli.command()
@@ -135,6 +157,7 @@ async def report_server_id(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def report_server_status(ctx: CLIContext, address: None | int) -> None:
+    """Report ILC status - mode, status and faults."""
     server_status = await ctx.execute(ServerStatusRequest(dev_id=ctx.address if address is None else address))
     if server_status.isError():
         click.echo(f"Error: {server_status}")
@@ -150,6 +173,8 @@ async def report_server_status(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> None:
+    """Command ILC to change its mode. Reads ILC mode if new mode is not
+    provided."""
     ilc_mode = await ctx.execute(ILCMode(dev_id=ctx.address if address is None else address, new_mode=mode))
 
     if ilc_mode.isError():
@@ -186,6 +211,8 @@ async def main() -> None:
             click.echo(f"{e.message}")
         except RuntimeError as e:
             click.echo(f"RuntimeError: {str(e)}")
+        except ModbusIOException as e:
+            click.echo(f"ModbusIOException: {str(e)}")
         except click.UsageError as e:
             e.show()
         except click.BadArgumentUsage as e:

@@ -92,7 +92,7 @@ class ServerIDResponse(ModbusPDU):
     """Report Server ID response."""
 
     function_code = ILCFunction.REPORT_SERVER_ID
-    rtu_byte_count_pos = 0
+    rtu_byte_count_pos = 2
 
     def __init__(self, dev_id: int = 255):
         super().__init__(dev_id=dev_id)

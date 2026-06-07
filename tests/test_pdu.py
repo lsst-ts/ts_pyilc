@@ -47,6 +47,10 @@ class PduTestCase(unittest.TestCase):
             b"\x11\x16\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x54\x65\x73\x74\x20\x49\x4c\x43\x20\x21",
         ),
         (
+            0x11,
+            b"\x11\x2b\x00\x00\x17\x85\x53\x34\x02\x02\x02\x02\x09\x00\x50\x6e\x65\x75\x6d\x61\x74\x69\x63\x20\x49\x4c\x43\x20\x28\x63\x29\x32\x30\x31\x37\x20\x41\x55\x52\x41\x2d\x4c\x53\x53\x54",
+        ),
+        (
             0x12,
             b"\x12\x01\x02\x03\x04\x05",
         ),
@@ -68,14 +72,28 @@ class PduTestCase(unittest.TestCase):
         assert pdu.encode() == frame[1:]
 
         if pdu.function_code == ILCFunction.REPORT_SERVER_ID:
-            assert pdu.unique_id == 0x010203040506
-            assert pdu.ilc_app_type == 0x07
-            assert pdu.network_node_type == 0x08
-            assert pdu.ilc_selected_options == 0x09
-            assert pdu.network_node_options == 0x0A
-            assert pdu.major_rev == 0x0B
-            assert pdu.minor_rev == 0x0C
-            assert pdu.firmware_name == "Test ILC !"
+            frame_size = pdu.calculateRtuFrameSize(b"\x01" + frame)
+            if frame_size == 27:
+                assert pdu.unique_id == 0x010203040506
+                assert pdu.ilc_app_type == 0x07
+                assert pdu.network_node_type == 0x08
+                assert pdu.ilc_selected_options == 0x09
+                assert pdu.network_node_options == 0x0A
+                assert pdu.major_rev == 0x0B
+                assert pdu.minor_rev == 0x0C
+                assert pdu.firmware_name == "Test ILC !"
+            elif frame_size == 48:
+                assert pdu.unique_id == 0x000017855334
+                assert pdu.ilc_app_type == 0x02
+                assert pdu.network_node_type == 0x02
+                assert pdu.ilc_selected_options == 0x02
+                assert pdu.network_node_options == 0x02
+                assert pdu.major_rev == 0x09
+                assert pdu.minor_rev == 0x00
+                assert pdu.firmware_name == "Pneumatic ILC (c)2017 AURA-LSST"
+            else:
+                self.fail(f"Unknow server_id 17 (0x11) frame size: {frame_size}.")
+
         elif pdu.function_code == ILCFunction.REPORT_SERVER_STATUS:
             assert pdu.mode == 0x01
             assert pdu.status == 0x0203

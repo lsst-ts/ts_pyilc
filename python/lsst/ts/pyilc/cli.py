@@ -29,6 +29,8 @@ from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    HardpointStepMotorMoveRequest,
+    HardpointStepMotorMoveResponse,
     ILCMode,
     ServerIDRequest,
     ServerIDResponse,
@@ -67,6 +69,7 @@ class CLIContext:
         client.register(ServerIDResponse)
         client.register(ServerStatusResponse)
         client.register(ILCMode)
+        client.register(HardpointStepMotorMoveResponse)
 
         self.client = client
         self.name = str(client)
@@ -181,6 +184,25 @@ async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> No
         click.echo(f"Error: {ilc_mode}")
 
     click.echo(f"Mode: {ilc_mode.mode}")
+
+
+@cli.command()
+@click.argument("steps", type=int, default=0)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None | int) -> None:
+    """Command ILC to move hardpoint step motor."""
+    hp_status = await ctx.execute(
+        HardpointStepMotorMoveRequest(
+            dev_id=ctx.address if address is None else address, step_motor_command=steps
+        )
+    )
+
+    if hp_status.isError():
+        click.echo(f"Error: {hp_status}")
+
+    click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
+    click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
 
 
 async def main() -> None:

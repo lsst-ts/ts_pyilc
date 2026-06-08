@@ -27,6 +27,8 @@ from pymodbus.pdu import ModbusPDU
 from pymodbus.server import StartAsyncTcpServer
 
 from .pdu import (
+    HardpointStepMotorMoveRequest,
+    HardpointStepMotorMoveResponse,
     ILCMode,
     ServerIDRequest,
     ServerIDResponse,
@@ -71,6 +73,16 @@ class SimulatedILCMode(ILCMode):
         return pdu
 
 
+class SimulatedHardpointStepMoveRequest(HardpointStepMotorMoveRequest):
+    async def update_datastore(self, context: ModbusDeviceContext) -> ModbusPDU:
+        pdu = HardpointStepMotorMoveResponse(dev_id=self.dev_id)
+
+        pdu.ssi_encoder_position = -8
+        pdu.load_cell_force = 42.42
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     store = ModbusServerContext(single=True)
 
@@ -82,6 +94,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedServerIDRequest,
                 SimulatedServerStatusRequest,
                 SimulatedILCMode,
+                SimulatedHardpointStepMoveRequest,
             ],
         )
     )

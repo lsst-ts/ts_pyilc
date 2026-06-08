@@ -22,64 +22,10 @@
 __all__ = ["ServerIDRequest", "ServerIDResponse"]
 
 import struct
-from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
-
-class ILCFunction(IntEnum):
-    """Modbus Function Codes for M1M3 ILCs based on LTS-646."""
-
-    # ID, status and mode functions
-    REPORT_SERVER_ID = 0x11  # 17
-    REPORT_SERVER_STATUS = 0x12  # 18
-    CHANGE_ILC_MODE = 0x41  # 65
-
-    # Common commands
-    FREEZE_SENSOR_VALUES = 0x44  # 68
-    SET_TEMP_ILC_ADDR = 0x48  # 72
-    SET_ADC_SCANRATE = 0x50  # 80
-    SET_ADC_CHANNEL_OFFSET = 0x51  # 81
-    RESET_SERVER = 0x6B  # 107
-    READ_CALIBRATION = 0x6E  # 110
-
-    READ_MEZZANINE_PRESSURE = 0x77  # 119
-    READ_MEZZANINE_ID = 0x78  # 120
-    READ_MEZZANINE_STATUS = 0x79  # 121
-
-    # Firmware / memory commands
-    WRITE_APPLICATION_STATES = 0x64  # 100
-    ERASE_APPLICATION = 0x65  # 101
-    WRITE_APPLICATION_PAGE = 0x66  # 102
-    WRITE_VERIFY_APPLICATION = 0x67  # 103
-
-    # FA - Pneumatic ILC
-    FA_SET_BOOSTER_VALVE_DCA_GAINS = 0x49  # 73
-    FA_READ_BOOSTER_VALVE_DCA_GAINS = 0x4A  # 74
-    FA_FORCE_DEMAND = 0x4B  # 75
-    FA_FORCE_AND_STATUS = 0x4C  # 76
-
-    # HP - Electromechanical (Hardpoint) and M2 ILC
-    HP_STEP_MOTOR_MOVE = 0x42  # 66
-    HP_FORCE_AND_STATUS = 0x43  # 67
-
-    # HM - Harpoint Monitoring ILC
-    HM_READ_MEZZANINE_LVDT = 0x7A  # 122
-
-    # TS - Thermal ILC
-    TS_DEMAND = 0x58  # 88
-    TS_STATUS = 0x59  # 89
-
-    # M2 - M2 Support System ILC
-    READ_MONITOR_SENSORS = 0x54  # 84
-
-
-class ILCRequest(ModbusPDU):
-    """Generic class providing empty encode function - for parameter-less
-    requests."""
-
-    def encode(self) -> bytes:
-        return b""
+from .utils import ILCFunction, ILCRequest
 
 
 class ServerIDRequest(ILCRequest):
@@ -146,46 +92,3 @@ class ServerIDResponse(ModbusPDU):
 
         self.unique_id = int.from_bytes(id_bytes, byteorder="big")
         self.firmware_name = firmware_name.decode()
-
-
-class ServerStatusRequest(ILCRequest):
-    """Request server status."""
-
-    function_code = ILCFunction.REPORT_SERVER_STATUS
-
-
-class ServerStatusResponse(ModbusPDU):
-    """Report server status response."""
-
-    function_code = ILCFunction.REPORT_SERVER_STATUS
-    rtu_frame_size = 5
-
-    def __init__(self, dev_id: int = 255):
-        super().__init__(dev_id=dev_id)
-        self.mode: int = 0
-        self.status: int = 0
-        self.faults: int = 0
-
-    def encode(self) -> bytes:
-        return struct.pack(">BHH", self.mode, self.status, self.faults)
-
-    def decode(self, data: bytes) -> None:
-        (self.mode, self.status, self.faults) = struct.unpack(">BHH", data)
-
-
-class ILCMode(ModbusPDU):
-    """Both ILC change request and response. The payload is the same, so one
-    class can work for both request and response."""
-
-    function_code = ILCFunction.CHANGE_ILC_MODE
-    rtu_frame_size = 2
-
-    def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF):
-        super().__init__(dev_id=dev_id)
-        self.mode = new_mode
-
-    def encode(self) -> bytes:
-        return struct.pack(">H", self.mode)
-
-    def decode(self, data: bytes) -> None:
-        self.mode = int.from_bytes(data, byteorder="big")

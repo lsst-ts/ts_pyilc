@@ -25,13 +25,15 @@ from parameterized import parameterized
 from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
-    ILCFunction,
+    HardpointStepMotorMoveRequest,
+    HardpointStepMotorMoveResponse,
     ILCMode,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
 )
+from lsst.ts.pyilc.pdu.utils import ILCFunction
 
 server = DecodePDU(False)
 
@@ -58,6 +60,10 @@ class PduTestCase(unittest.TestCase):
             0x41,
             b"\x41\x00\x01",
         ),
+        (
+            0x42,
+            b"\x42\xff\xff\xff\xf8B)\xae\x14",
+        ),
     ]
 
     @parameterized.expand(responses)
@@ -66,6 +72,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ServerIDRequest, ServerIDResponse)
         server.add_pdu(ServerStatusRequest, ServerStatusResponse)
         server.add_pdu(ILCMode, ILCMode)
+        server.add_pdu(HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse)
 
         pdu = self.server.decode(frame)
 
@@ -100,6 +107,9 @@ class PduTestCase(unittest.TestCase):
             assert pdu.faults == 0x0405
         elif pdu.function_code == ILCFunction.CHANGE_ILC_MODE:
             assert pdu.mode == 0x0001
+        elif pdu.function_code == ILCFunction.HP_STEP_MOTOR_MOVE:
+            assert pdu.ssi_encoder_position == -8
+            self.assertAlmostEqual(pdu.load_cell_force, 42.42, places=4)
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

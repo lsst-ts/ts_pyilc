@@ -21,26 +21,26 @@
 
 from .utils import ILCFunction
 
-__all__ = ["ILCMode"]
+__all__ = ["SetILCTemporaryAddress"]
 
 import struct
 
 from pymodbus.pdu import ModbusPDU
 
 
-class ILCMode(ModbusPDU):
-    """Both ILC change mode request and response. The payload is the same, so
-    one class can work for both request and response."""
+class SetILCTemporaryAddress(ModbusPDU):
+    """Set ILC temporary address. Both Request and Response have the same
+    payload."""
 
-    function_code = ILCFunction.CHANGE_ILC_MODE
-    rtu_frame_size = 2
+    function_code = ILCFunction.SET_TEMP_ILC_ADDR
+    rtu_frame_size = 1
 
-    def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF):
+    def __init__(self, dev_id: int = 255, new_address: int = 1):
         super().__init__(dev_id=dev_id)
-        self.mode = new_mode
+        self.address = new_address
 
     def encode(self) -> bytes:
-        return struct.pack(">H", self.mode)
+        return struct.pack(">B", self.address)
 
     def decode(self, data: bytes) -> None:
-        self.mode = int.from_bytes(data, byteorder="big")
+        self.address = int.from_bytes(data)

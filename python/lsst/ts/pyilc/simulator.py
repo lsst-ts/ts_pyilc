@@ -27,6 +27,8 @@ from pymodbus.pdu import ModbusPDU
 from pymodbus.server import StartAsyncTcpServer
 
 from .pdu import (
+    HardpointForceAndStatusRequest,
+    HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
@@ -34,6 +36,7 @@ from .pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetILCTemporaryAddress,
 )
 
 
@@ -66,9 +69,7 @@ class SimulatedServerStatusRequest(ServerStatusRequest):
 
 class SimulatedILCMode(ILCMode):
     async def update_datastore(self, context: ModbusDeviceContext) -> ModbusPDU:
-        pdu = ILCMode(dev_id=self.dev_id)
-
-        pdu.mode = 0x04
+        pdu = ILCMode(dev_id=self.dev_id, new_mode=self.mode)
 
         return pdu
 
@@ -83,8 +84,28 @@ class SimulatedHardpointStepMoveRequest(HardpointStepMotorMoveRequest):
         return pdu
 
 
+class SimulatedHardpointForceAndStatusRequest(HardpointForceAndStatusRequest):
+    async def update_datastore(self, context: ModbusDeviceContext) -> ModbusPDU:
+        pdu = HardpointForceAndStatusResponse(dev_id=self.dev_id)
+
+        pdu.status = 42
+        pdu.ssi_encoder_position = -8
+        pdu.load_cell_force = 43.42
+
+        return pdu
+
+
+class SimulatedSetILCTemporaryAddress(SetILCTemporaryAddress):
+    async def update_datastore(self, context: ModbusServerContext) -> ModbusPDU:
+        pdu = SetILCTemporaryAddress(dev_id=self.dev_id, new_address=self.address)
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     store = ModbusServerContext(single=True)
+
+    print(f"Starting simulator on {host}:{port}.")
 
     server = asyncio.create_task(
         StartAsyncTcpServer(
@@ -95,6 +116,8 @@ async def main(host: str, port: int) -> None:
                 SimulatedServerStatusRequest,
                 SimulatedILCMode,
                 SimulatedHardpointStepMoveRequest,
+                SimulatedHardpointForceAndStatusRequest,
+                SimulatedSetILCTemporaryAddress,
             ],
         )
     )

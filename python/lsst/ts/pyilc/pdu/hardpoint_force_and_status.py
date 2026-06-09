@@ -19,28 +19,37 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .utils import ILCFunction
+__all__ = ["HardpointForceAndStatusRequest", "HardpointForceAndStatusResponse"]
 
-__all__ = ["ILCMode"]
-
+import math as m
 import struct
 
 from pymodbus.pdu import ModbusPDU
 
+from .utils import ILCFunction, ILCRequest
 
-class ILCMode(ModbusPDU):
-    """Both ILC change mode request and response. The payload is the same, so
-    one class can work for both request and response."""
 
-    function_code = ILCFunction.CHANGE_ILC_MODE
-    rtu_frame_size = 2
+class HardpointForceAndStatusRequest(ILCRequest):
+    """Request Hardpoint Cell Forces and Status."""
 
-    def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF):
+    function_code = ILCFunction.HP_FORCE_AND_STATUS
+
+
+class HardpointForceAndStatusResponse(ModbusPDU):
+    """Report Hardpoint Cell Forces and Status."""
+
+    function_code = ILCFunction.HP_FORCE_AND_STATUS
+    rtu_frame_size = 9
+
+    def __init__(self, dev_id: int = 255):
         super().__init__(dev_id=dev_id)
-        self.mode = new_mode
+
+        self.status: int = 0
+        self.ssi_encoder_position: int = 0
+        self.load_cell_force: float = m.nan
 
     def encode(self) -> bytes:
-        return struct.pack(">H", self.mode)
+        return struct.pack(">Bif", self.status, self.ssi_encoder_position, self.load_cell_force)
 
     def decode(self, data: bytes) -> None:
-        self.mode = int.from_bytes(data, byteorder="big")
+        (self.status, self.ssi_encoder_position, self.load_cell_force) = struct.unpack(">Bif", data)

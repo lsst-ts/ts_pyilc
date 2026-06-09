@@ -25,6 +25,8 @@ from parameterized import parameterized
 from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
+    HardpointForceAndStatusRequest,
+    HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
@@ -32,6 +34,7 @@ from lsst.ts.pyilc.pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetILCTemporaryAddress,
 )
 from lsst.ts.pyilc.pdu.utils import ILCFunction
 
@@ -64,6 +67,14 @@ class PduTestCase(unittest.TestCase):
             0x42,
             b"\x42\xff\xff\xff\xf8B)\xae\x14",
         ),
+        (
+            0x43,
+            b"\x43\x02\x00\x00\x00\x2a\xc2-\xae\x14",
+        ),
+        (
+            0x48,
+            b"\x48\x17",
+        ),
     ]
 
     @parameterized.expand(responses)
@@ -73,6 +84,8 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ServerStatusRequest, ServerStatusResponse)
         server.add_pdu(ILCMode, ILCMode)
         server.add_pdu(HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse)
+        server.add_pdu(HardpointForceAndStatusRequest, HardpointForceAndStatusResponse)
+        server.add_pdu(SetILCTemporaryAddress, SetILCTemporaryAddress)
 
         pdu = self.server.decode(frame)
 
@@ -110,6 +123,12 @@ class PduTestCase(unittest.TestCase):
         elif pdu.function_code == ILCFunction.HP_STEP_MOTOR_MOVE:
             assert pdu.ssi_encoder_position == -8
             self.assertAlmostEqual(pdu.load_cell_force, 42.42, places=4)
+        elif pdu.function_code == ILCFunction.HP_FORCE_AND_STATUS:
+            assert pdu.status == 2
+            assert pdu.ssi_encoder_position == 42
+            self.assertAlmostEqual(pdu.load_cell_force, -43.42, places=4)
+        elif pdu.function_code == ILCFunction.SET_TEMP_ILC_ADDR:
+            assert pdu.address == 0x17
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

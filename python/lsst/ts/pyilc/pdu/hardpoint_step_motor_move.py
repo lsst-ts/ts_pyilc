@@ -47,7 +47,7 @@ class HardpointStepMotorMoveRequest(ModbusPDU):
 
 
 class HardpointStepMotorMoveResponse(ModbusPDU):
-    """Report Server ID response."""
+    """Report Hardpoint Forces and Encoder Position."""
 
     function_code = ILCFunction.HP_STEP_MOTOR_MOVE
     rtu_frame_size = 8

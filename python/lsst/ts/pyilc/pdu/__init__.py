@@ -23,3 +23,5 @@ from .server_id import ServerIDRequest, ServerIDResponse
 from .server_status import ServerStatusRequest, ServerStatusResponse
 from .ilc_mode import ILCMode
 from .hardpoint_step_motor_move import HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse
+from .hardpoint_force_and_status import HardpointForceAndStatusRequest, HardpointForceAndStatusResponse
+from .set_ilc_temporary_address import SetILCTemporaryAddress

@@ -29,6 +29,8 @@ from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    HardpointForceAndStatusRequest,
+    HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
@@ -36,6 +38,7 @@ from .pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetILCTemporaryAddress,
 )
 
 # Setup history file tracking via standard readline
@@ -70,6 +73,8 @@ class CLIContext:
         client.register(ServerStatusResponse)
         client.register(ILCMode)
         client.register(HardpointStepMotorMoveResponse)
+        client.register(HardpointForceAndStatusResponse)
+        client.register(SetILCTemporaryAddress)
 
         self.client = client
         self.name = str(client)
@@ -182,6 +187,7 @@ async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> No
 
     if ilc_mode.isError():
         click.echo(f"Error: {ilc_mode}")
+        return
 
     click.echo(f"Mode: {ilc_mode.mode}")
 
@@ -200,9 +206,45 @@ async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None |
 
     if hp_status.isError():
         click.echo(f"Error: {hp_status}")
+        return
 
     click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
     click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> None:
+    """Command ILC to move hardpoint step motor."""
+    hp_status = await ctx.execute(
+        HardpointForceAndStatusRequest(dev_id=ctx.address if address is None else address)
+    )
+
+    if hp_status.isError():
+        click.echo(f"Error: {hp_status}")
+        return
+
+    click.echo(f"Status: {hp_status.status}")
+    click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
+    click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
+
+
+@cli.command()
+@click.argument("new_address", type=int)
+@click.argument("address", type=int, default=None)
+async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: None | int) -> None:
+    "Set ILC temporary address. Sets default address to the new address."
+    address_status = await ctx.execute(
+        SetILCTemporaryAddress(dev_id=ctx.address if address is None else address, new_address=new_address)
+    )
+
+    if address_status.isError():
+        click.echo(f"Error: {address_status}")
+        return
+
+    click.echo(f"New address: {address_status.address}")
+    ctx.address = address_status.address
 
 
 async def main() -> None:

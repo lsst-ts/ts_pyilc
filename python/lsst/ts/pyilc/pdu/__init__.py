@@ -25,3 +25,4 @@ from .ilc_mode import ILCMode
 from .hardpoint_step_motor_move import HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse
 from .hardpoint_force_and_status import HardpointForceAndStatusRequest, HardpointForceAndStatusResponse
 from .set_ilc_temporary_address import SetILCTemporaryAddress
+from .force_actuator_set_booster_valve_dca_gain import ForceActuatorSetBoosterValveDCAGainRequest, ForceActuatorSetBoosterValveDCAGainResponse

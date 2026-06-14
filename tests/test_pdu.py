@@ -25,6 +25,8 @@ from parameterized import parameterized
 from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
+    ForceActuatorSetBoosterValveDCAGainRequest,
+    ForceActuatorSetBoosterValveDCAGainResponse,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
@@ -75,6 +77,10 @@ class PduTestCase(unittest.TestCase):
             0x48,
             b"\x48\x17",
         ),
+        (
+            0x49,
+            b"\x49",
+        ),
     ]
 
     @parameterized.expand(responses)
@@ -86,6 +92,9 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse)
         server.add_pdu(HardpointForceAndStatusRequest, HardpointForceAndStatusResponse)
         server.add_pdu(SetILCTemporaryAddress, SetILCTemporaryAddress)
+        server.add_pdu(
+            ForceActuatorSetBoosterValveDCAGainRequest, ForceActuatorSetBoosterValveDCAGainResponse
+        )
 
         pdu = self.server.decode(frame)
 
@@ -129,6 +138,8 @@ class PduTestCase(unittest.TestCase):
             self.assertAlmostEqual(pdu.load_cell_force, -43.42, places=4)
         elif pdu.function_code == ILCFunction.SET_TEMP_ILC_ADDR:
             assert pdu.address == 0x17
+        elif pdu.function_code == ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS:
+            pass
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

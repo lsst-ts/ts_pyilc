@@ -27,6 +27,8 @@ from pymodbus.pdu import ModbusPDU
 from pymodbus.server import StartAsyncTcpServer
 
 from .pdu import (
+    ForceActuatorSetBoosterValveDCAGainRequest,
+    ForceActuatorSetBoosterValveDCAGainResponse,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
@@ -102,6 +104,13 @@ class SimulatedSetILCTemporaryAddress(SetILCTemporaryAddress):
         return pdu
 
 
+class SimulatedForceActuatorSetBoosterValveDCAGainRequest(ForceActuatorSetBoosterValveDCAGainRequest):
+    async def update_datastore(self, context: ModbusServerContext) -> ModbusPDU:
+        pdu = ForceActuatorSetBoosterValveDCAGainResponse(dev_id=self.dev_id)
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     store = ModbusServerContext(single=True)
 
@@ -118,6 +127,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedHardpointStepMoveRequest,
                 SimulatedHardpointForceAndStatusRequest,
                 SimulatedSetILCTemporaryAddress,
+                SimulatedForceActuatorSetBoosterValveDCAGainRequest,
             ],
         )
     )

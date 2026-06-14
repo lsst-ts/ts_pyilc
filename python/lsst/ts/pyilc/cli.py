@@ -29,6 +29,8 @@ from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    ForceActuatorSetBoosterValveDCAGainRequest,
+    ForceActuatorSetBoosterValveDCAGainResponse,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
@@ -75,6 +77,7 @@ class CLIContext:
         client.register(HardpointStepMotorMoveResponse)
         client.register(HardpointForceAndStatusResponse)
         client.register(SetILCTemporaryAddress)
+        client.register(ForceActuatorSetBoosterValveDCAGainResponse)
 
         self.client = client
         self.name = str(client)
@@ -233,6 +236,7 @@ async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> No
 @cli.command()
 @click.argument("new_address", type=int)
 @click.argument("address", type=int, default=None)
+@pass_ctx
 async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: None | int) -> None:
     "Set ILC temporary address. Sets default address to the new address."
     address_status = await ctx.execute(
@@ -245,6 +249,30 @@ async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: 
 
     click.echo(f"New address: {address_status.address}")
     ctx.address = address_status.address
+
+
+@cli.command()
+@click.argument("axial_gain", type=float)
+@click.argument("lateral_gain", type=float)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_set_booster_valve_dca_gain(
+    ctx: CLIContext, axial_gain: float, lateral_gain: float, address: None | int
+) -> None:
+    "Set booster valves DCA gains."
+    set_gains = await ctx.execute(
+        ForceActuatorSetBoosterValveDCAGainRequest(
+            dev_id=ctx.address if address is None else address,
+            axial_gain=axial_gain,
+            lateral_gain=lateral_gain,
+        )
+    )
+
+    if set_gains.isError():
+        click.echo(f"Error: {set_gains}")
+        return
+
+    click.echo(f"Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}")
 
 
 async def main() -> None:

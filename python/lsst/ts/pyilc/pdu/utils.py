@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ILCFunction", "ILCRequest"]
+__all__ = ["ILCFunction", "ILCRequest", "ILCResponse"]
 
 from enum import IntEnum
 
@@ -76,6 +76,14 @@ class ILCFunction(IntEnum):
 class ILCRequest(ModbusPDU):
     """Generic class providing empty encode function - for parameter-less
     requests."""
+
+    def encode(self) -> bytes:
+        return b""
+
+
+class ILCResponse(ModbusPDU):
+    """Generic class for processing empty response - for Requests calls when
+    response is enough to signal sucessfull completion."""
 
     def encode(self) -> bytes:
         return b""

@@ -40,23 +40,20 @@ class ServerIDResponse(ModbusPDU):
     function_code = ILCFunction.REPORT_SERVER_ID
     rtu_byte_count_pos = 2
 
-    def __init__(self, dev_id: int = 255):
-        super().__init__(dev_id=dev_id)
-
-        self.unique_id: int = 0
-        self.ilc_app_type: int = 0
-        self.network_node_type: int = 0
-        self.ilc_selected_options: int = 0
-        self.network_node_options: int = 0
-        self.major_rev: int = 0
-        self.minor_rev: int = 0
-        self.firmware_name: str = ""
+    unique_id: int = 0
+    ilc_app_type: int = 0
+    network_node_type: int = 0
+    ilc_selected_options: int = 0
+    network_node_options: int = 0
+    major_rev: int = 0
+    minor_rev: int = 0
+    firmware_name: str = ""
 
     def encode(self) -> bytes:
         id_bytes = self.unique_id.to_bytes(6, byteorder="big")
         fn_len = len(self.firmware_name)
 
-        res = struct.pack(
+        return struct.pack(
             f">B6s6B{fn_len}s",
             fn_len + 12,
             id_bytes,
@@ -68,8 +65,6 @@ class ServerIDResponse(ModbusPDU):
             self.minor_rev,
             self.firmware_name.encode(),
         )
-
-        return res
 
     def decode(self, data: bytes) -> None:
         fn_len = data[0]

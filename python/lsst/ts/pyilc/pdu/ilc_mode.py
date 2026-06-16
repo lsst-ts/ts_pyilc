@@ -35,6 +35,14 @@ class ILCMode(ModbusPDU):
     function_code = ILCFunction.CHANGE_ILC_MODE
     rtu_frame_size = 2
 
+    """ILC internal state - mode."""
+    STANDBY = 0
+    DISABLED = 1
+    ENABLED = 1
+    BOOTLOADER = 3
+    FAULT = 4
+    CLEAR_FAULTS = 5
+
     def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF):
         super().__init__(dev_id=dev_id)
         self.mode = new_mode

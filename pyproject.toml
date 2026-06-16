@@ -11,6 +11,7 @@ urls = { documentation = "https://ts-pyilc.lsst.io", repository = "https://githu
 dynamic = [ "version" ]
 dependencies = [
   "asyncclick",
+  "intelhex",
   "pymodbus>=3.12.0",
   "pyserial-asyncio",
 ]

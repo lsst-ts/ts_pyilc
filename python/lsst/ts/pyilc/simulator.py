@@ -40,6 +40,15 @@ from .pdu import (
     ServerStatusResponse,
     SetILCTemporaryAddress,
 )
+from .pdu.firmware import (
+    EraseApplication,
+    WriteApplicationPageRequest,
+    WriteApplicationPageResponse,
+    WriteApplicationStatesRequest,
+    WriteApplicationStatesResponse,
+    WriteVerifyApplicationRequest,
+    WriteVerifyApplicationResponse,
+)
 
 
 class SimulatedServerIDRequest(ServerIDRequest):
@@ -69,9 +78,16 @@ class SimulatedServerStatusRequest(ServerStatusRequest):
         return pdu
 
 
+ilc_mode = ILCMode.STANDBY
+
+
 class SimulatedILCMode(ILCMode):
     async def update_datastore(self, context: ModbusDeviceContext) -> ModbusPDU:
-        pdu = ILCMode(dev_id=self.dev_id, new_mode=self.mode)
+        global ilc_mode
+
+        if self.mode != 0xFFFF:
+            ilc_mode = self.mode
+        pdu = ILCMode(dev_id=self.dev_id, new_mode=ilc_mode)
 
         return pdu
 
@@ -111,6 +127,34 @@ class SimulatedForceActuatorSetBoosterValveDCAGainRequest(ForceActuatorSetBooste
         return pdu
 
 
+class SimulatedWriteApplicationStatesReques(WriteApplicationStatesRequest):
+    async def update_datastore(self, context: ModbusServerContext) -> ModbusPDU:
+        pdu = WriteApplicationStatesResponse(dev_id=self.dev_id)
+
+        return pdu
+
+
+class SimulatedEraseApplication(EraseApplication):
+    async def update_datastore(self, context: ModbusServerContext) -> ModbusPDU:
+        pdu = EraseApplication(dev_id=self.dev_id)
+
+        return pdu
+
+
+class SimulatedWriteApplicationPageRequest(WriteApplicationPageRequest):
+    async def update_datastore(self, context: ModbusServerContext) -> ModbusPDU:
+        pdu = WriteApplicationPageResponse(dev_id=self.dev_id)
+
+        return pdu
+
+
+class SimulatedWriteVerifyApplicationRequest(WriteVerifyApplicationRequest):
+    async def update_datastore(self, context: ModbusServerContext) -> ModbusPDU:
+        pdu = WriteVerifyApplicationResponse(dev_id=self.dev_id, status=0)
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     store = ModbusServerContext(single=True)
 
@@ -128,6 +172,10 @@ async def main(host: str, port: int) -> None:
                 SimulatedHardpointForceAndStatusRequest,
                 SimulatedSetILCTemporaryAddress,
                 SimulatedForceActuatorSetBoosterValveDCAGainRequest,
+                SimulatedWriteApplicationStatesReques,
+                SimulatedEraseApplication,
+                SimulatedWriteApplicationPageRequest,
+                SimulatedWriteVerifyApplicationRequest,
             ],
         )
     )

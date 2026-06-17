@@ -33,8 +33,31 @@ from pymodbus.framer import FramerRTU
 from pymodbus.pdu import ModbusPDU
 from pymodbus.utilities import hexlify_packets
 
+"""
+This module handles communication during ILC firmware update. Beware this
+isn't well documented in the available documentation - the code actually
+provides the documentation (see flash function). Based on C++ code, which was
+based on LabVIEW code, and reverse engineering of the ILC bootloader.
+"""
+
 
 class CRC:
+    """
+    Streaming Modbus 16-but CRC calculations. Allows continuues update as new
+    data are availabe. Does not swap CRC bytes at the end for correct endian
+    order - but works with big ending (>H for struct.pack) encoding.
+
+    Parameters
+    ----------
+    data : `bytes`, optional
+        Starting byte sequence.
+
+    Attributes
+    ----------
+    crc : `int`
+        Calculated CRC.
+    """
+
     crc = 0xFFFF
 
     def __init__(self, data: bytes = b""):
@@ -189,6 +212,7 @@ async def flash(
     """
     status = await client.execute(ILCMode(dev_id=dev_id))
 
+    # 1. - 3. Change ILC to bootloader state.
     for attempts in range(4):
         if status.isError():
             raise RuntimeError(f"Cannot query ILC {dev_id} mode: {status}.")
@@ -219,6 +243,7 @@ async def flash(
     if status.mode != ILCMode.BOOTLOADER:
         raise RuntimeError(f"ILC {dev_id} transitioned to {status.mode} instead to BOOTLOADER (3).")
 
+    # 4. Command ILC to erase its firmware - made it available for writing.
     erase = await client.execute(EraseApplication(dev_id=dev_id))
     if erase.isError():
         raise RuntimeError(f"Cannot erase ILC {dev_id}: {erase}.")
@@ -237,8 +262,12 @@ async def flash(
     # written, only 256 - (256 / 4) bytes are actually transferred
     APPLICATION_PAGE_LENGTH = 192
 
+    # CRC is calculated from al data (including padding characters, which
+    # aren't send to ILC). From the first send byte to the latest valid byte -
+    # see length argument.
     crc = CRC()
 
+    # 5. Write ILC pages.
     while mem_address < end_address:
         data_start = max(segments[0][0], mem_address)
         length = 256
@@ -254,10 +283,11 @@ async def flash(
         if len(segments) == 1:
             length = min(segments[0][1] - data_start, 256)
 
+        # Use all valid data for CRC calculation.
         crc.append(data[:length])
 
-        # remove every 4th element - that's how hexfile was compiled, as it is
-        # storing 3 bytes of opcodes into 4 bytes
+        # remove every 4th byte - that's how hexfile was compiled, as it is
+        # storing 3 bytes of allowable MCU opcodes into 4 bytes
         del data[3::4]
 
         page = await client.execute(
@@ -271,7 +301,7 @@ async def flash(
             )
         mem_address += 256
 
-        # handle segments..
+        # handle segments
         if mem_address > segments[0][1]:
             del segments[0]
             if len(segments) and (mem_address) + 0xFF < segments[0][0]:
@@ -280,6 +310,9 @@ async def flash(
                     "aborting writing the file."
                 )
 
+    # 6. Write application statistics. ILC verifies checksum, and if it
+    # matches, it is ready to copy new firmware from staging are into main
+    # memory and use it after rebooting.
     stat = await client.execute(
         WriteApplicationStatesRequest(
             dev_id=dev_id,
@@ -291,16 +324,20 @@ async def flash(
     if stat.isError():
         raise RuntimeError(f"Cannot write end statistics to ILC {dev_id}: {stat}.")
 
+    # 7. Ask ILC for verification status. This also copy the firmware from
+    # stagging memory buffer into main memory.
     verify = await client.execute(WriteVerifyApplicationRequest(dev_id=dev_id))
     if verify.isError():
         raise RuntimeError(f"Cannot verify ILC {dev_id} write: {verify}.")
 
+    # 8. Transition ILC to STANDBY mode.
     status = await client.execute(ILCMode(dev_id=dev_id, new_mode=ILCMode.STANDBY))
     if status.isError():
         raise RuntimeError(
             f"Cannot transition ILC {dev_id} to standby after verifying the flashed code: {status}."
         )
 
+    # 9. Transition ILC to DISABLED mode.
     status = await client.execute(ILCMode(dev_id=dev_id, new_mode=ILCMode.DISABLED))
     if status.isError():
         raise RuntimeError(

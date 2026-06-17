@@ -50,7 +50,7 @@ class MockClient:
     def __init__(self, output: str):
         self.output_file = open(output)
 
-    async def execute(self, request: ModbusPDU) -> ModbusPDU:
+    async def execute(self, no_return: bool, request: ModbusPDU) -> ModbusPDU:
         req = request.encode()
         print("TestCase.execute:", str(request), request.function_code, hexlify_packets(req))
         expected_out = self.output_file.readline()

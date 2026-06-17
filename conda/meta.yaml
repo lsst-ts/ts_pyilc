@@ -25,7 +25,7 @@ test:
     - intelhex
     - ts-conda-build ==0.5
     - ts-xml
-    - pymodbus >=3.12.0
+    - pymodbus >=3.12.1
     - parameterized
   source_files:
     - python
@@ -52,4 +52,4 @@ requirements:
     - setuptools
     - setuptools_scm
     - ts-xml
-    - pymodbus >=3.12.0
+    - pymodbus >=3.12.1

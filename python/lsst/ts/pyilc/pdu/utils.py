@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ILCFunction", "ILCRequest", "ILCResponse"]
+__all__ = ["ILCFunction", "ILCException", "ILCRequest", "ILCResponse"]
 
 from enum import IntEnum
 
@@ -87,3 +87,11 @@ class ILCResponse(ModbusPDU):
 
     def encode(self) -> bytes:
         return b""
+
+
+class ILCException(IntEnum):
+    """ILC Exceptions codes."""
+
+    ILLEGAL_FUNCTION = 0x01
+    ILLEGAL_DATA_VALUE = 0x03
+    SERVER_DEVICE_FAULT = 0x04

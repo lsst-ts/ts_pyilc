@@ -138,8 +138,7 @@ class WriteApplicationPageRequest(ModbusPDU):
         return struct.pack(f">HH{self.length}s", self.start_address, self.length, self.data)
 
     def decode(self, data: bytes) -> None:
-        (self.start_address, self.length) = struct.unpack(">2H", data)
-
+        (self.start_address, self.length) = struct.unpack(">2H", data[:4])
         self.data = data[4:]
 
         assert len(self.data) == self.length
@@ -180,18 +179,16 @@ async def flash(
     client: ModbusBaseClient,
     dev_id: int,
     intel_hex_file: IntelHex,
-    page_callback: None | Callable[[int], None] = None,
+    callback: None | Callable[[int, str], None] = None,
 ) -> int:
     """Flash ILC. Operates at the following steps:
-    1. Change ILC into standby mode.
-    2. Change ILC into firmware update mode.
-    3. Clear ILC faults.
-    4. Erase ILC application.
-    5. Write ILC application pages.
-    6. Write ILC application statistics.
-    7. Verify application.
-    8. Change ILC into standby mode.
-    9. Change ILC into disabled mode.
+    1. Change ILC into bootloader (firmware update) mode.
+    2. Erase ILC application.
+    3. Write ILC application pages.
+    4. Write ILC application statistics.
+    5. Verify application.
+    6. Change ILC into standby mode.
+    7. Change ILC into disabled mode.
 
     Parameters
     ----------
@@ -201,50 +198,57 @@ async def flash(
         ILC device address.
     intel_hex_file : `IntelHex`
         IntelHex class with data to load.
-    page_callback : `Callable[[int], None]`, optional
-        Optional callback. Called after a page is sucessfully loaded into.
-        Passes last written address.
+    callback : `Callable[[int, str], None]`, optional
+        Optional callback. Called after an operation (ILC communication) is
+        performed. The int argument is a number 0-1000, steps progressed.  The
+        string is a string describing current phase of the operation progress.
 
     Returns
     -------
     verify : `int`
         Returned verification status.
     """
-    status = await client.execute(ILCMode(dev_id=dev_id))
 
-    # 1. - 3. Change ILC to bootloader state.
-    for attempts in range(4):
+    # number 0-1000 for the current phase
+    progress_phase = 0
+
+    async def change_state(new_mode: int) -> None:
+        status = await client.execute(False, ILCMode(dev_id=dev_id))
+        if status.isError():
+            raise RuntimeError(f"ILC {dev_id} in error while transitioning to bootloader mode: {status}.")
+
         if status.isError():
             raise RuntimeError(f"Cannot query ILC {dev_id} mode: {status}.")
 
-        new_mode = 0xFFFF
+        for attempts in range(4):
+            nonlocal progress_phase
+            progress_phase += 5
+            if callback:
+                callback(5, f"configuring ({status.status})")
 
-        if status.mode == ILCMode.BOOTLOADER:
-            break
-        elif status.mode == ILCMode.ENABLED:
-            new_mode = ILCMode.DISABLED
-        elif status.mode == ILCMode.DISABLED:
-            new_mode = ILCMode.STANDBY
-        elif status.mode == ILCMode.STANDBY:
-            new_mode = ILCMode.BOOTLOADER
-        elif status.mode == ILCMode.FAULT:
-            new_mode = ILCMode.CLEAR_FAULTS
-        else:
-            raise RuntimeError(
-                f"ILC is in {status.mode} mode during transition to bootloade"
-                "mode, for which transition isn't defined."
-            )
+            new_status = await client.execute(False, ILCMode(dev_id, new_mode, status.mode))
+            if new_status.isError():
+                raise RuntimeError(
+                    f"ILC {dev_id} in error while transitioning to bootloader mode: {new_status}."
+                )
 
-        status = await client.execute(ILCMode(dev_id=dev_id, new_mode=new_mode))
+            if new_status.mode == new_mode:
+                return
 
-    if status.isError():
-        raise RuntimeError(f"ILC {dev_id} in error while transitioning to bootloader mode: {status}.")
+            if new_status.mode == status.mode:
+                raise RuntimeError(f"Cannot transition ILC {dev_id} to {new_mode}")
 
-    if status.mode != ILCMode.BOOTLOADER:
-        raise RuntimeError(f"ILC {dev_id} transitioned to {status.mode} instead to BOOTLOADER (3).")
+            status = new_status
 
-    # 4. Command ILC to erase its firmware - made it available for writing.
-    erase = await client.execute(EraseApplication(dev_id=dev_id))
+    # 1. Change ILC to bootloader state.
+    await change_state(ILCMode.BOOTLOADER)
+
+    progress_phase += 5
+    if callback:
+        callback(5, "erasing app")
+
+    # 2. Command ILC to erase its firmware - made it available for writing.
+    erase = await client.execute(False, EraseApplication(dev_id=dev_id))
     if erase.isError():
         raise RuntimeError(f"Cannot erase ILC {dev_id}: {erase}.")
 
@@ -267,7 +271,10 @@ async def flash(
     # see length argument.
     crc = CRC()
 
-    # 5. Write ILC pages.
+    # progress step per byte written
+    progress_step = float(end_address - start_address) / (1000 - progress_phase - 22)
+
+    # 3. Write ILC pages.
     while mem_address < end_address:
         data_start = max(segments[0][0], mem_address)
         length = 256
@@ -290,10 +297,15 @@ async def flash(
         # storing 3 bytes of allowable MCU opcodes into 4 bytes
         del data[3::4]
 
+        progress_phase += int(progress_step * 256)
+        if callback:
+            callback(int(progress_step * 256), f"writing {progress_phase // 256}")
+
         page = await client.execute(
+            False,
             WriteApplicationPageRequest(
                 dev_id=dev_id, start_address=mem_address, length=APPLICATION_PAGE_LENGTH, data=bytes(data)
-            )
+            ),
         )
         if page.isError():
             raise RuntimeError(
@@ -310,38 +322,39 @@ async def flash(
                     "aborting writing the file."
                 )
 
-    # 6. Write application statistics. ILC verifies checksum, and if it
+    progress_phase += 5
+    if callback:
+        callback(5, "confirming")
+
+    # 4. Write application statistics. ILC verifies checksum, and if it
     # matches, it is ready to copy new firmware from staging are into main
     # memory and use it after rebooting.
     stat = await client.execute(
+        False,
         WriteApplicationStatesRequest(
             dev_id=dev_id,
             data_crc=crc.crc,
             start_address=start_address,
             data_length=end_address - start_address,
-        )
+        ),
     )
     if stat.isError():
         raise RuntimeError(f"Cannot write end statistics to ILC {dev_id}: {stat}.")
 
-    # 7. Ask ILC for verification status. This also copy the firmware from
+    progress_phase += 5
+    if callback:
+        callback(5, "quering status")
+
+    # 5. Ask ILC for verification status. This also copy the firmware from
     # stagging memory buffer into main memory.
-    verify = await client.execute(WriteVerifyApplicationRequest(dev_id=dev_id))
+    verify = await client.execute(False, WriteVerifyApplicationRequest(dev_id=dev_id))
     if verify.isError():
         raise RuntimeError(f"Cannot verify ILC {dev_id} write: {verify}.")
 
-    # 8. Transition ILC to STANDBY mode.
-    status = await client.execute(ILCMode(dev_id=dev_id, new_mode=ILCMode.STANDBY))
-    if status.isError():
-        raise RuntimeError(
-            f"Cannot transition ILC {dev_id} to standby after verifying the flashed code: {status}."
-        )
+    # 6. Transition ILC to DISABLED mode.
+    await change_state(ILCMode.DISABLED)
 
-    # 9. Transition ILC to DISABLED mode.
-    status = await client.execute(ILCMode(dev_id=dev_id, new_mode=ILCMode.DISABLED))
-    if status.isError():
-        raise RuntimeError(
-            f"Cannot transition ILC {dev_id} to disabled mode after verifying the flashed code: {status}."
-        )
+    if callback:
+        callback(1000, "done")
 
     return verify.status

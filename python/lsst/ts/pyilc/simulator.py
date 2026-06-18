@@ -29,6 +29,7 @@ from pymodbus.server import StartAsyncTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 
 from .pdu import (
+    ChangeILCMode,
     ForceActuatorSetBoosterValveDCAGainRequest,
     ForceActuatorSetBoosterValveDCAGainResponse,
     HardpointForceAndStatusRequest,
@@ -81,24 +82,24 @@ class SimulatedServerStatusRequest(ServerStatusRequest):
         return pdu
 
 
-ilc_mode = ILCMode.STANDBY
+ilc_mode = int(ILCMode.STANDBY)
 
 
-class SimulatedILCMode(ILCMode):
+class SimulatedChangeILCMode(ChangeILCMode):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         global ilc_mode
 
         if self.mode == 0xFFFF:
-            return ILCMode(self.dev_id, ilc_mode)
+            return ChangeILCMode(self.dev_id, ilc_mode)
 
         def exception(exception_code: int) -> ExceptionResponse:
             return ExceptionResponse(self.function_code, exception_code, self.dev_id)
 
-        def change_mode(new_mode: int | None = None) -> ILCMode:
+        def change_mode(new_mode: int | None = None) -> ChangeILCMode:
             global ilc_mode
 
             ilc_mode = self.mode if new_mode is None else new_mode
-            return ILCMode(self.dev_id, ilc_mode)
+            return ChangeILCMode(self.dev_id, ilc_mode)
 
         # test allowable transitions..
         if ilc_mode == ILCMode.FAULT:
@@ -197,7 +198,7 @@ async def main(host: str, port: int) -> None:
             custom_pdu=[
                 SimulatedServerIDRequest,
                 SimulatedServerStatusRequest,
-                SimulatedILCMode,
+                SimulatedChangeILCMode,
                 SimulatedHardpointStepMoveRequest,
                 SimulatedHardpointForceAndStatusRequest,
                 SimulatedSetILCTemporaryAddress,

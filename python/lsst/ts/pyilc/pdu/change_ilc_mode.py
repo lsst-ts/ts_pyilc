@@ -24,11 +24,22 @@ from .utils import ILCFunction
 __all__ = ["ILCMode"]
 
 import struct
+from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
 
-class ILCMode(ModbusPDU):
+class ILCMode(IntEnum):
+    # ILC internal state - mode
+    STANDBY = 0
+    DISABLED = 1
+    ENABLED = 2
+    BOOTLOADER = 3
+    FAULT = 4
+    CLEAR_FAULTS = 5
+
+
+class ChangeILCMode(ModbusPDU):
     """Both ILC change mode request and response. The payload is the same, so
     one class can work for both request and response.
 
@@ -48,31 +59,23 @@ class ILCMode(ModbusPDU):
     function_code = ILCFunction.CHANGE_ILC_MODE
     rtu_frame_size = 2
 
-    # ILC internal state - mode
-    STANDBY = 0
-    DISABLED = 1
-    ENABLED = 2
-    BOOTLOADER = 3
-    FAULT = 4
-    CLEAR_FAULTS = 5
-
     def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF, current_mode: int | None = None):
         super().__init__(dev_id=dev_id)
         if current_mode is not None:
-            if new_mode == self.FAULT:
+            if new_mode == ILCMode.FAULT:
                 self.mode = new_mode
             elif new_mode == current_mode:
                 self.mode = 0xFFFF
-            elif current_mode == self.FAULT:
-                self.mode = self.CLEAR_FAULTS
-            elif current_mode == self.BOOTLOADER:
-                self.mode = self.STANDBY
-            elif new_mode == self.BOOTLOADER:
-                if current_mode == self.STANDBY:
-                    self.mode = self.BOOTLOADER
+            elif current_mode == ILCMode.FAULT:
+                self.mode = ILCMode.CLEAR_FAULTS
+            elif current_mode == ILCMode.BOOTLOADER:
+                self.mode = ILCMode.STANDBY
+            elif new_mode == ILCMode.BOOTLOADER:
+                if current_mode == ILCMode.STANDBY:
+                    self.mode = ILCMode.BOOTLOADER
                 else:
                     self.mode = current_mode - 1
-            elif current_mode in (self.STANDBY, self.DISABLED, self.ENABLED):
+            elif current_mode in (ILCMode.STANDBY, ILCMode.DISABLED, ILCMode.ENABLED):
                 self.mode = current_mode + (1 if new_mode > current_mode else -1)
             else:
                 self.mode = 0xFFFF

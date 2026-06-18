@@ -27,7 +27,7 @@ from parameterized import parameterized
 from pymodbus.pdu import DecodePDU, ModbusPDU
 from pymodbus.utilities import hexlify_packets
 
-from lsst.ts.pyilc.pdu import ILCMode
+from lsst.ts.pyilc.pdu import ChangeILCMode, ILCMode
 from lsst.ts.pyilc.pdu.firmware import (
     CRC,
     EraseApplication,
@@ -43,7 +43,7 @@ from lsst.ts.pyilc.pdu.utils import ILCFunction
 
 server = DecodePDU(False)
 
-ilc_mode = ILCMode.STANDBY
+ilc_mode = int(ILCMode.STANDBY)
 
 
 class MockClient:
@@ -65,7 +65,7 @@ class MockClient:
             if request.mode != 0xFFFF:
                 ilc_mode = request.mode
 
-            return ILCMode(dev_id=request.dev_id, new_mode=ilc_mode)
+            return ChangeILCMode(dev_id=request.dev_id, new_mode=ilc_mode)
         elif request.function_code == ILCFunction.WRITE_APPLICATION_STATES:
             return WriteApplicationStatesResponse(dev_id=request.dev_id)
         elif request.function_code == ILCFunction.ERASE_APPLICATION:

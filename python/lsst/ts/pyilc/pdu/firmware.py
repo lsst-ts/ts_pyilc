@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .ilc_mode import ILCMode
+from .change_ilc_mode import ChangeILCMode, ILCMode
 from .utils import ILCFunction, ILCRequest, ILCResponse
 
 __all__ = ["flash"]
@@ -213,7 +213,7 @@ async def flash(
     progress_phase = 0
 
     async def change_state(new_mode: int) -> None:
-        status = await client.execute(False, ILCMode(dev_id=dev_id))
+        status = await client.execute(False, ChangeILCMode(dev_id=dev_id))
         if status.isError():
             raise RuntimeError(f"ILC {dev_id} in error while transitioning to bootloader mode: {status}.")
 
@@ -226,7 +226,7 @@ async def flash(
             if callback:
                 callback(5, f"configuring ({status.status})")
 
-            new_status = await client.execute(False, ILCMode(dev_id, new_mode, status.mode))
+            new_status = await client.execute(False, ChangeILCMode(dev_id, new_mode, status.mode))
             if new_status.isError():
                 raise RuntimeError(
                     f"ILC {dev_id} in error while transitioning to bootloader mode: {new_status}."

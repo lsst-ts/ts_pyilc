@@ -30,6 +30,7 @@ from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    ChangeILCMode,
     ForceActuatorSetBoosterValveDCAGainRequest,
     ForceActuatorSetBoosterValveDCAGainResponse,
     HardpointForceAndStatusRequest,
@@ -84,7 +85,7 @@ class CLIContext:
         await client.connect()
         client.register(ServerIDResponse)
         client.register(ServerStatusResponse)
-        client.register(ILCMode)
+        client.register(ChangeILCMode)
         client.register(HardpointStepMotorMoveResponse)
         client.register(HardpointForceAndStatusResponse)
         client.register(SetILCTemporaryAddress)
@@ -202,7 +203,7 @@ async def report_server_status(ctx: CLIContext, address: None | int) -> None:
 async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> None:
     """Command ILC to change its mode. Reads ILC mode if new mode is not
     provided."""
-    ilc_mode = await ctx.execute(ILCMode(dev_id=ctx.dev_id(address), new_mode=mode))
+    ilc_mode = await ctx.execute(ChangeILCMode(dev_id=ctx.dev_id(address), new_mode=mode))
 
     if ilc_mode.isError():
         click.echo(f"Error: {ilc_mode}")
@@ -212,24 +213,32 @@ async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> No
 
 
 async def __state_transition(ctx: CLIContext, dev_id: int, target_mode: int) -> None:
-    current_mode = await ctx.execute(ILCMode(dev_id=dev_id))
+    current_mode = await ctx.execute(ChangeILCMode(dev_id=dev_id))
     if current_mode.isError():
         click.echo("Error: {current_mode}")
         return
 
     with click.progressbar(length=4, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
         if current_mode.mode == target_mode:
-            bar.update(4, f"New ILC {dev_id} mode: {current_mode.mode}")
+            bar.update(4, f"New ILC {dev_id} mode: {ILCMode(current_mode.mode).name}")
             return
         next_mode = await ctx.execute(
-            ILCMode(dev_id=dev_id, new_mode=target_mode, current_mode=current_mode.mode)
+            ChangeILCMode(dev_id=dev_id, new_mode=target_mode, current_mode=current_mode.mode)
         )
         if next_mode.isError():
             click.echo("Error: {next_mode}")
             return
-        bar.update(1, f"current: {next_mode.mode}")
+        bar.update(
+            1,
+            f"current: {ILCMode(next_mode.mode).name}"
+            if next_mode.mode in ILCMode
+            else f"current: {next_mode.mode}",
+        )
         if next_mode.mode == current_mode.mode:
-            click.echo(f"Cannot transition - stuck in {current_mode.mode}")
+            if current_mode.mode in ILCMode:
+                click.echo(f"Cannot transition - stuck in {ILCMode(current_mode.mode).name}")
+            else:
+                click.echo(f"Cannot transition - stuck in {current_mode.mode}")
             return
         current_mode = next_mode
 

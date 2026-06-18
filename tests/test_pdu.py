@@ -25,13 +25,13 @@ from parameterized import parameterized
 from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
+    ChangeILCMode,
     ForceActuatorSetBoosterValveDCAGainRequest,
     ForceActuatorSetBoosterValveDCAGainResponse,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
-    ILCMode,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
@@ -88,7 +88,7 @@ class PduTestCase(unittest.TestCase):
         """Tests PDUs decode and encode methods."""
         server.add_pdu(ServerIDRequest, ServerIDResponse)
         server.add_pdu(ServerStatusRequest, ServerStatusResponse)
-        server.add_pdu(ILCMode, ILCMode)
+        server.add_pdu(ChangeILCMode, ChangeILCMode)
         server.add_pdu(HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse)
         server.add_pdu(HardpointForceAndStatusRequest, HardpointForceAndStatusResponse)
         server.add_pdu(SetILCTemporaryAddress, SetILCTemporaryAddress)

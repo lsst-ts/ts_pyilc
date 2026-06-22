@@ -20,19 +20,37 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import logging
 import os
 
 import asyncclick as click
+from intelhex import IntelHex
 from pymodbus.client import AsyncModbusSerialClient, AsyncModbusTcpClient
+from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    ChangeILCMode,
+    ForceActuatorSetBoosterValveDCAGainRequest,
+    ForceActuatorSetBoosterValveDCAGainResponse,
+    HardpointForceAndStatusRequest,
+    HardpointForceAndStatusResponse,
+    HardpointStepMotorMoveRequest,
+    HardpointStepMotorMoveResponse,
     ILCMode,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetILCTemporaryAddress,
 )
+from .pdu.firmware import (
+    EraseApplication,
+    WriteApplicationPageResponse,
+    WriteApplicationStatesResponse,
+    WriteVerifyApplicationResponse,
+)
+from .pdu.firmware import flash as flash_ilc
 
 # Setup history file tracking via standard readline
 HISTORY_FILE = os.path.expanduser("~/.ilccli_history")
@@ -57,12 +75,25 @@ class CLIContext:
         self.client = None
         self.address: int = 255
         self.name: str = ""
+        self.debug = False
+
+    def dev_id(self, dev_id: int | None) -> int:
+        """Returns either provided address or default address."""
+        return self.address if dev_id is None else dev_id
 
     async def connect(self, client: AsyncModbusSerialClient | AsyncModbusTcpClient) -> None:
         await client.connect()
         client.register(ServerIDResponse)
         client.register(ServerStatusResponse)
-        client.register(ILCMode)
+        client.register(ChangeILCMode)
+        client.register(HardpointStepMotorMoveResponse)
+        client.register(HardpointForceAndStatusResponse)
+        client.register(SetILCTemporaryAddress)
+        client.register(ForceActuatorSetBoosterValveDCAGainResponse)
+        client.register(WriteApplicationStatesResponse)
+        client.register(EraseApplication)
+        client.register(WriteApplicationPageResponse)
+        client.register(WriteVerifyApplicationResponse)
 
         self.client = client
         self.name = str(client)
@@ -92,9 +123,19 @@ def cli() -> None:
 
 
 @cli.command()
+@pass_ctx
+def debug(ctx: CLIContext) -> None:
+    """Log every command."""
+    ctx.debug = True
+    log = logging.getLogger("pymodbus")
+    log.setLevel(logging.DEBUG)
+
+
+@cli.command()
 @click.argument("port", type=str)
 @pass_ctx
 async def serial(ctx: CLIContext, port: str) -> None:
+    """Open connection to serial port."""
     ctx.disconnect()
     await ctx.connect(AsyncModbusSerialClient(port, baudrate=921600))
 
@@ -106,6 +147,7 @@ async def serial(ctx: CLIContext, port: str) -> None:
 @click.argument("port", type=int, default=502)
 @pass_ctx
 async def tcp(ctx: CLIContext, host: str, port: int) -> None:
+    """Connect to TCP/IP bridge."""
     ctx.disconnect()
     await ctx.connect(AsyncModbusTcpClient(host, port=port))
 
@@ -113,11 +155,19 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
 
 
 @cli.command()
+@click.argument("address", type=int)
+@pass_ctx
+def address(ctx: CLIContext, address: int) -> None:
+    """Change default address."""
+    ctx.address = address
+
+
+@cli.command()
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def report_server_id(ctx: CLIContext, address: None | int) -> None:
     """Read coils or registers from the server."""
-    server_id = await ctx.execute(ServerIDRequest(dev_id=ctx.address if address is None else address))
+    server_id = await ctx.execute(ServerIDRequest(dev_id=ctx.dev_id(address)))
     if server_id.isError():
         click.echo(f"Error: {server_id}")
         return
@@ -135,7 +185,8 @@ async def report_server_id(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def report_server_status(ctx: CLIContext, address: None | int) -> None:
-    server_status = await ctx.execute(ServerStatusRequest(dev_id=ctx.address if address is None else address))
+    """Report ILC status - mode, status and faults."""
+    server_status = await ctx.execute(ServerStatusRequest(dev_id=ctx.dev_id(address)))
     if server_status.isError():
         click.echo(f"Error: {server_status}")
         return
@@ -146,16 +197,174 @@ async def report_server_status(ctx: CLIContext, address: None | int) -> None:
 
 
 @cli.command()
-@click.argument("mode", type=int, default=0xFF)
+@click.argument("mode", type=int, default=0xFFFF)
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> None:
-    ilc_mode = await ctx.execute(ILCMode(dev_id=ctx.address if address is None else address, new_mode=mode))
+    """Command ILC to change its mode. Reads ILC mode if new mode is not
+    provided."""
+    ilc_mode = await ctx.execute(ChangeILCMode(dev_id=ctx.dev_id(address), new_mode=mode))
 
     if ilc_mode.isError():
         click.echo(f"Error: {ilc_mode}")
+        return
 
     click.echo(f"Mode: {ilc_mode.mode}")
+
+
+async def __state_transition(ctx: CLIContext, dev_id: int, target_mode: int) -> None:
+    current_mode = await ctx.execute(ChangeILCMode(dev_id=dev_id))
+    if current_mode.isError():
+        click.echo("Error: {current_mode}")
+        return
+
+    with click.progressbar(length=4, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
+        if current_mode.mode == target_mode:
+            bar.update(4, f"New ILC {dev_id} mode: {ILCMode(current_mode.mode).name}")
+            return
+        next_mode = await ctx.execute(
+            ChangeILCMode(dev_id=dev_id, new_mode=target_mode, current_mode=current_mode.mode)
+        )
+        if next_mode.isError():
+            click.echo("Error: {next_mode}")
+            return
+        bar.update(
+            1,
+            f"current: {ILCMode(next_mode.mode).name}"
+            if next_mode.mode in ILCMode
+            else f"current: {next_mode.mode}",
+        )
+        if next_mode.mode == current_mode.mode:
+            if current_mode.mode in ILCMode:
+                click.echo(f"Cannot transition - stuck in {ILCMode(current_mode.mode).name}")
+            else:
+                click.echo(f"Cannot transition - stuck in {current_mode.mode}")
+            return
+        current_mode = next_mode
+
+    click.echo(f"ILC {dev_id} cannot transition to mode {target_mode}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def standby(ctx: CLIContext, address: None | int) -> None:
+    """Switch ILC to standby mode."""
+    await __state_transition(ctx, ctx.dev_id(address), ILCMode.STANDBY)
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def disable(ctx: CLIContext, address: None | int) -> None:
+    """Switch ilc to disabled mode."""
+    await __state_transition(ctx, ctx.dev_id(address), ILCMode.DISABLED)
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def enable(ctx: CLIContext, address: None | int) -> None:
+    """Switch ILC to enabled mode."""
+    await __state_transition(ctx, ctx.dev_id(address), ILCMode.ENABLED)
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def bootloader(ctx: CLIContext, address: None | int) -> None:
+    """Switch ILC to bootloader mode."""
+    await __state_transition(ctx, ctx.dev_id(address), ILCMode.BOOTLOADER)
+
+
+@cli.command()
+@click.argument("steps", type=int, default=0)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None | int) -> None:
+    """Command ILC to move hardpoint step motor."""
+    hp_status = await ctx.execute(
+        HardpointStepMotorMoveRequest(dev_id=ctx.dev_id(address), step_motor_command=steps)
+    )
+
+    if hp_status.isError():
+        click.echo(f"Error: {hp_status}")
+        return
+
+    click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
+    click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> None:
+    """Command ILC to move hardpoint step motor."""
+    hp_status = await ctx.execute(HardpointForceAndStatusRequest(dev_id=ctx.dev_id(address)))
+
+    if hp_status.isError():
+        click.echo(f"Error: {hp_status}")
+        return
+
+    click.echo(f"Status: {hp_status.status}")
+    click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
+    click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
+
+
+@cli.command()
+@click.argument("new_address", type=int)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: None | int) -> None:
+    "Set ILC temporary address. Sets default address to the new address."
+    address_status = await ctx.execute(
+        SetILCTemporaryAddress(dev_id=ctx.dev_id(address), new_address=new_address)
+    )
+
+    if address_status.isError():
+        click.echo(f"Error: {address_status}")
+        return
+
+    click.echo(f"New address: {address_status.address}")
+    ctx.address = address_status.address
+
+
+@cli.command()
+@click.argument("axial_gain", type=float)
+@click.argument("lateral_gain", type=float)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_set_booster_valve_dca_gain(
+    ctx: CLIContext, axial_gain: float, lateral_gain: float, address: None | int
+) -> None:
+    "Set booster valves DCA gains."
+    set_gains = await ctx.execute(
+        ForceActuatorSetBoosterValveDCAGainRequest(
+            dev_id=ctx.dev_id(address),
+            axial_gain=axial_gain,
+            lateral_gain=lateral_gain,
+        )
+    )
+
+    if set_gains.isError():
+        click.echo(f"Error: {set_gains}")
+        return
+
+    click.echo(f"Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}")
+
+
+@cli.command()
+@click.argument("intel-hex", type=click.Path())
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> None:
+    """Flash new ILC firmware."""
+    if ctx.debug:
+        await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex))
+        return
+
+    with click.progressbar(length=1000, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
+        await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex), bar.update)
 
 
 async def main() -> None:
@@ -186,6 +395,8 @@ async def main() -> None:
             click.echo(f"{e.message}")
         except RuntimeError as e:
             click.echo(f"RuntimeError: {str(e)}")
+        except ModbusIOException as e:
+            click.echo(f"ModbusIOException: {str(e)}")
         except click.UsageError as e:
             e.show()
         except click.BadArgumentUsage as e:
@@ -201,4 +412,6 @@ async def main() -> None:
 
 
 def run() -> None:
+    logging.basicConfig()
+
     asyncio.run(main())

@@ -20,7 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .change_ilc_mode import ChangeILCMode, ILCMode
-from .utils import ILCFunction, ILCRequest, ILCResponse
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, ILCResponse
 
 __all__ = ["flash"]
 
@@ -43,8 +43,8 @@ based on LabVIEW code, and reverse engineering of the ILC bootloader.
 
 class CRC:
     """
-    Streaming Modbus 16-but CRC calculations. Allows continuues update as new
-    data are availabe. Does not swap CRC bytes at the end for correct endian
+    Streaming Modbus 16-but CRC calculations. Allows continuous update as new
+    data are available. Does not swap CRC bytes at the end for correct endian
     order - but works with big ending (>H for struct.pack) encoding.
 
     Parameters
@@ -76,7 +76,13 @@ class WriteApplicationStatesRequest(ModbusPDU):
     function_code = ILCFunction.WRITE_APPLICATION_STATES
     rtu_frame_size = 8
 
-    def __init__(self, dev_id: int = 255, data_crc: int = 0, start_address: int = 0, data_length: int = 0):
+    def __init__(
+        self,
+        dev_id: int = DEFAULT_ILC_ADDRESS,
+        data_crc: int = 0,
+        start_address: int = 0,
+        data_length: int = 0,
+    ):
         super().__init__(dev_id=dev_id)
         self.data_crc = data_crc
         self.start_address = start_address
@@ -106,7 +112,7 @@ class WriteApplicationStatesRequest(ModbusPDU):
 
 
 class WriteApplicationStatesResponse(ILCResponse):
-    """Response to APLICATION_STATES requets."""
+    """Response to APLICATION_STATES request."""
 
     function_code = ILCFunction.WRITE_APPLICATION_STATES
 
@@ -124,11 +130,12 @@ class WriteApplicationPageRequest(ModbusPDU):
     function_code = ILCFunction.WRITE_APPLICATION_PAGE
     rtu_byte_count_pos = 5
 
-    start_addres: int = 0
     length: int = 0
     data: bytes = b""
 
-    def __init__(self, dev_id: int = 255, start_address: int = 0, length: int = 0, data: bytes = b""):
+    def __init__(
+        self, dev_id: int = DEFAULT_ILC_ADDRESS, start_address: int = 0, length: int = 0, data: bytes = b""
+    ):
         super().__init__(dev_id=dev_id)
         self.start_address = start_address
         self.length = length
@@ -163,7 +170,7 @@ class WriteVerifyApplicationResponse(ModbusPDU):
     function_code = ILCFunction.WRITE_VERIFY_APPLICATION
     rtu_frame_size = 2
 
-    def __init__(self, dev_id: int = 255, status: int = 0):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, status: int = 0):
         super().__init__(dev_id=dev_id)
 
         self.status = status
@@ -209,6 +216,12 @@ async def flash(
         Returned verification status.
     """
 
+    # maximal progress - 100 %, so 1000 per thousand
+    MAX_PROGRESS = 1000
+
+    # cost of a simple FCU query
+    SIMPLE_STEP = 5
+
     # number 0-1000 for the current phase
     progress_phase = 0
 
@@ -222,9 +235,9 @@ async def flash(
 
         for attempts in range(4):
             nonlocal progress_phase
-            progress_phase += 5
+            progress_phase += SIMPLE_STEP
             if callback:
-                callback(5, f"configuring ({status.status})")
+                callback(SIMPLE_STEP, f"configuring ({status.status})")
 
             new_status = await client.execute(False, ChangeILCMode(dev_id, new_mode, status.mode))
             if new_status.isError():
@@ -243,9 +256,9 @@ async def flash(
     # 1. Change ILC to bootloader state.
     await change_state(ILCMode.BOOTLOADER)
 
-    progress_phase += 5
+    progress_phase += SIMPLE_STEP
     if callback:
-        callback(5, "erasing app")
+        callback(SIMPLE_STEP, "erasing app")
 
     # 2. Command ILC to erase its firmware - made it available for writing.
     erase = await client.execute(False, EraseApplication(dev_id=dev_id))
@@ -264,31 +277,32 @@ async def flash(
 
     # We are flashing 256 bytes chunks, but as every fourth byte is not
     # written, only 256 - (256 / 4) bytes are actually transferred
-    APPLICATION_PAGE_LENGTH = 192
+    PAGE_PADDED_LENGTH = 256
+    APPLICATION_PAGE_LENGTH = PAGE_PADDED_LENGTH - (PAGE_PADDED_LENGTH // 4)
 
-    # CRC is calculated from al data (including padding characters, which
+    # CRC is calculated from all data (including padding characters, which
     # aren't send to ILC). From the first send byte to the latest valid byte -
     # see length argument.
     crc = CRC()
 
     # progress step per byte written
-    progress_step = float(end_address - start_address) / (1000 - progress_phase - 22)
+    progress_step = float(end_address - start_address) / (MAX_PROGRESS - progress_phase - (5 * SIMPLE_STEP))
 
     # 3. Write ILC pages.
     while mem_address < end_address:
         data_start = max(segments[0][0], mem_address)
-        length = 256
+        length = PAGE_PADDED_LENGTH
 
         data = []
 
-        for i in range(256):
+        for i in range(PAGE_PADDED_LENGTH):
             data.append(intel_hex_file[mem_address + i])
 
-        for i in range(3, 257, 4):
+        for i in range(3, PAGE_PADDED_LENGTH + 1, 4):
             data[i] = 0x00
 
         if len(segments) == 1:
-            length = min(segments[0][1] - data_start, 256)
+            length = min(segments[0][1] - data_start, PAGE_PADDED_LENGTH)
 
         # Use all valid data for CRC calculation.
         crc.append(data[:length])
@@ -297,9 +311,11 @@ async def flash(
         # storing 3 bytes of allowable MCU opcodes into 4 bytes
         del data[3::4]
 
-        progress_phase += int(progress_step * 256)
+        progress_phase += int(progress_step * PAGE_PADDED_LENGTH)
         if callback:
-            callback(int(progress_step * 256), f"writing {progress_phase // 256}")
+            callback(
+                int(progress_step * PAGE_PADDED_LENGTH), f"writing {progress_phase // PAGE_PADDED_LENGTH}"
+            )
 
         page = await client.execute(
             False,
@@ -311,7 +327,7 @@ async def flash(
             raise RuntimeError(
                 f"Cannot write page starting with address {mem_address} to ILC {dev_id}: {page}."
             )
-        mem_address += 256
+        mem_address += PAGE_PADDED_LENGTH
 
         # handle segments
         if mem_address > segments[0][1]:
@@ -355,6 +371,6 @@ async def flash(
     await change_state(ILCMode.DISABLED)
 
     if callback:
-        callback(1000, "done")
+        callback(MAX_PROGRESS, "done")
 
     return verify.status

@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .utils import ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 __all__ = ["SetILCTemporaryAddress"]
 
@@ -35,7 +35,7 @@ class SetILCTemporaryAddress(ModbusPDU):
     function_code = ILCFunction.SET_TEMP_ILC_ADDR
     rtu_frame_size = 1
 
-    def __init__(self, dev_id: int = 255, new_address: int = 1):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
         super().__init__(dev_id=dev_id)
         self.address = new_address
 

@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 
 class HardpointStepMotorMoveRequest(ModbusPDU):
@@ -35,7 +35,7 @@ class HardpointStepMotorMoveRequest(ModbusPDU):
     function_code = ILCFunction.HP_STEP_MOTOR_MOVE
     rtu_frame_size = 1
 
-    def __init__(self, dev_id: int = 255, step_motor_command: int = 0):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, step_motor_command: int = 0):
         super().__init__(dev_id=dev_id)
         self.step_motor_command = step_motor_command
 
@@ -52,7 +52,7 @@ class HardpointStepMotorMoveResponse(ModbusPDU):
     function_code = ILCFunction.HP_STEP_MOTOR_MOVE
     rtu_frame_size = 8
 
-    def __init__(self, dev_id: int = 255):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
         self.ssi_encoder_position: int = 0

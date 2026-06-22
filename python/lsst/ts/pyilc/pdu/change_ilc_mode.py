@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .utils import ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 __all__ = ["ILCMode"]
 
@@ -37,6 +37,7 @@ class ILCMode(IntEnum):
     BOOTLOADER = 3
     FAULT = 4
     CLEAR_FAULTS = 5
+    QUERY = 0xFFFF
 
 
 class ChangeILCMode(ModbusPDU):
@@ -45,7 +46,6 @@ class ChangeILCMode(ModbusPDU):
 
     Parameters
     ----------
-
     dev_id : `int`
         ILC address.
     new_mode : `int`, optional
@@ -59,13 +59,18 @@ class ChangeILCMode(ModbusPDU):
     function_code = ILCFunction.CHANGE_ILC_MODE
     rtu_frame_size = 2
 
-    def __init__(self, dev_id: int = 255, new_mode: int = 0xFFFF, current_mode: int | None = None):
+    def __init__(
+        self,
+        dev_id: int = DEFAULT_ILC_ADDRESS,
+        new_mode: int = ILCMode.QUERY,
+        current_mode: int | None = None,
+    ):
         super().__init__(dev_id=dev_id)
         if current_mode is not None:
             if new_mode == ILCMode.FAULT:
                 self.mode = new_mode
             elif new_mode == current_mode:
-                self.mode = 0xFFFF
+                self.mode = ILCMode.QUERY
             elif current_mode == ILCMode.FAULT:
                 self.mode = ILCMode.CLEAR_FAULTS
             elif current_mode == ILCMode.BOOTLOADER:
@@ -78,7 +83,7 @@ class ChangeILCMode(ModbusPDU):
             elif current_mode in (ILCMode.STANDBY, ILCMode.DISABLED, ILCMode.ENABLED):
                 self.mode = current_mode + (1 if new_mode > current_mode else -1)
             else:
-                self.mode = 0xFFFF
+                self.mode = ILCMode.QUERY
         else:
             self.mode = new_mode
 

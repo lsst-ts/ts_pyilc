@@ -19,11 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ILCFunction", "ILCException", "ILCRequest", "ILCResponse"]
+__all__ = ["ILCFunction", "ILCException", "ILCRequest", "ILCResponse", "DEFAULT_ILC_ADDRESS"]
 
 from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
+
+DEFAULT_ILC_ADDRESS = 255
+"""Address ILC uses in case TEDS is not connected."""
 
 
 class ILCFunction(IntEnum):

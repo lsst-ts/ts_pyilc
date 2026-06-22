@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
 
 
 class HardpointForceAndStatusRequest(ILCRequest):
@@ -41,7 +41,7 @@ class HardpointForceAndStatusResponse(ModbusPDU):
     function_code = ILCFunction.HP_FORCE_AND_STATUS
     rtu_frame_size = 9
 
-    def __init__(self, dev_id: int = 255):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
         self.status: int = 0

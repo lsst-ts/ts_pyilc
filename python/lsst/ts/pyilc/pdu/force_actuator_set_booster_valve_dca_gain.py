@@ -26,14 +26,16 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 
 class ForceActuatorSetBoosterValveDCAGainRequest(ModbusPDU):
     function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS
     rtu_frame_size = 8
 
-    def __init__(self, dev_id: int = 255, axial_gain: float = m.nan, lateral_gain: float = m.nan):
+    def __init__(
+        self, dev_id: int = DEFAULT_ILC_ADDRESS, axial_gain: float = m.nan, lateral_gain: float = m.nan
+    ):
         super().__init__(dev_id=dev_id)
 
         self.axial_gain = axial_gain

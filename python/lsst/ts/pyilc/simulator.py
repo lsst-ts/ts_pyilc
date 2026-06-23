@@ -30,6 +30,8 @@ from pymodbus.simulator import DataType, SimData, SimDevice
 
 from .pdu import (
     ChangeILCMode,
+    ForceActuatorForceAndStatusDAResponse,
+    ForceActuatorForceAndStatusRequest,
     ForceActuatorForceDemandDARequest,
     ForceActuatorForceDemandDAResponse,
     ForceActuatorReadBoosterValveDCAGainsRequest,
@@ -231,6 +233,10 @@ class SimulatedFreezeSensorValuesBroadcast(FreezeSensorValuesBroadcast):
         return None
 
 
+axial_force: float = 0
+lateral_force: float = 0
+
+
 class SimulatedForceActuatorForceDemandDARequest(ForceActuatorForceDemandDARequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         pdu = ForceActuatorForceDemandDAResponse(dev_id=self.dev_id)
@@ -241,8 +247,33 @@ class SimulatedForceActuatorForceDemandDARequest(ForceActuatorForceDemandDAReque
         pdu.dca_fault = True
         pdu.communication_counter = communication_counter
 
-        pdu.axial_cell_force = self.axial_force_setpoint / 1000.0
-        pdu.lateral_cell_force = self.lateral_force_setpoint / 1000.0
+        global axial_force
+        global lateral_force
+
+        axial_force = self.axial_force_setpoint / 1000.0
+        lateral_force = self.lateral_force_setpoint / 1000.0
+
+        pdu.axial_cell_force = axial_force
+        pdu.lateral_cell_force = lateral_force
+
+        return pdu
+
+
+class SimulatedForceActuatorForceAndStatusRequest(ForceActuatorForceAndStatusRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ForceActuatorForceAndStatusDAResponse(dev_id=self.dev_id)
+
+        global communication_counter
+
+        pdu.ilc_fault = True
+        pdu.dca_fault = True
+        pdu.communication_counter = communication_counter
+
+        global axial_force
+        global lateral_force
+
+        pdu.axial_cell_force = axial_force
+        pdu.lateral_cell_force = lateral_force
 
         return pdu
 
@@ -269,6 +300,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedWriteVerifyApplicationRequest,
                 SimulatedFreezeSensorValuesBroadcast,
                 SimulatedForceActuatorForceDemandDARequest,
+                SimulatedForceActuatorForceAndStatusRequest,
             ],
         )
     )

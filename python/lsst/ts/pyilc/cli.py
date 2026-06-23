@@ -31,8 +31,11 @@ from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
     ChangeILCMode,
+    ForceActuatorForceAndStatusDAResponse,
+    ForceActuatorForceAndStatusRequest,
     ForceActuatorForceDemandDARequest,
     ForceActuatorForceDemandDAResponse,
+    ForceActuatorForceDemandSARequest,
     ForceActuatorReadBoosterValveDCAGainsRequest,
     ForceActuatorSetBoosterValveDCAGainsRequest,
     ForceActuatorSetBoosterValveDCAGainsResponse,
@@ -100,6 +103,7 @@ class CLIContext:
         client.register(WriteApplicationPageResponse)
         client.register(WriteVerifyApplicationResponse)
         client.register(ForceActuatorForceDemandDAResponse)
+        client.register(ForceActuatorForceAndStatusDAResponse)
 
         self.client = client
         self.name = str(client)
@@ -413,6 +417,39 @@ async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broa
 
 
 @cli.command()
+@click.argument("force-setpoint", type=float)
+@click.argument("slew-flag", type=int, default=0)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_force_demand_sa(
+    ctx: CLIContext,
+    force_setpoint: float,
+    slew_flag: int,
+    address: None | int,
+) -> None:
+    sa_demand = await ctx.execute(
+        ForceActuatorForceDemandSARequest(
+            dev_id=ctx.dev_id(address),
+            slew_flag=slew_flag,
+            force_setpoint=int(force_setpoint * 1000),
+        )
+    )
+
+    if sa_demand.isError():
+        click.echo("Error: {sa_demand}")
+        return
+
+    click.echo(f"ILC Fault: {sa_demand.ilc_fault}")
+    click.echo(f"DCA Fault: {sa_demand.dca_fault}")
+    click.echo(f"Communication counter: {sa_demand.communication_counter}")
+
+    click.echo("")
+
+    click.echo(f"Axial measured force: {sa_demand.axial_cell_force:.4f}")
+    click.echo(f"Lateral measured force: {sa_demand.lateral_cell_force:.4f}")
+
+
+@cli.command()
 @click.argument("axial-force-setpoint", type=float)
 @click.argument("lateral-force-setpoint", type=float)
 @click.argument("slew-flag", type=int, default=0)
@@ -446,6 +483,26 @@ async def force_actuator_force_demand_da(
 
     click.echo(f"Axial measured force: {da_demand.axial_cell_force:.4f}")
     click.echo(f"Lateral measured force: {da_demand.lateral_cell_force:.4f}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | int) -> None:
+    da_force = await ctx.execute(ForceActuatorForceAndStatusRequest(dev_id=ctx.dev_id(address)))
+
+    if da_force.isError():
+        click.echo("Error: {da_force}")
+        return
+
+    click.echo(f"ILC Fault: {da_force.ilc_fault}")
+    click.echo(f"DCA Fault: {da_force.dca_fault}")
+    click.echo(f"Communication counter: {da_force.communication_counter}")
+
+    click.echo("")
+
+    click.echo(f"Axial measured force: {da_force.axial_cell_force:.4f}")
+    click.echo(f"Lateral measured force: {da_force.lateral_cell_force:.4f}")
 
 
 async def main() -> None:

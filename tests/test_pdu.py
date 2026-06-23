@@ -26,6 +26,8 @@ from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
     ChangeILCMode,
+    ForceActuatorForceAndStatusDAResponse,
+    ForceActuatorForceAndStatusRequest,
     ForceActuatorForceDemandDARequest,
     ForceActuatorForceDemandDAResponse,
     ForceActuatorReadBoosterValveDCAGainsRequest,
@@ -93,6 +95,10 @@ class PduTestCase(unittest.TestCase):
             0x4B,
             b"\x4b\x43C\x0e$Z\xc3\x0e$Z",
         ),
+        (
+            0x4C,
+            b"\x4c\x43\xc3\x0e$ZC\x0e$Z",
+        ),
     ]
 
     @parameterized.expand(responses)
@@ -111,6 +117,7 @@ class PduTestCase(unittest.TestCase):
             ForceActuatorReadBoosterValveDCAGainsRequest, ForceActuatorReadBoosterValveDCAGainsResponse
         )
         server.add_pdu(ForceActuatorForceDemandDARequest, ForceActuatorForceDemandDAResponse)
+        server.add_pdu(ForceActuatorForceAndStatusRequest, ForceActuatorForceAndStatusDAResponse)
 
         pdu = self.server.decode(frame)
 
@@ -168,6 +175,12 @@ class PduTestCase(unittest.TestCase):
             assert pdu.communication_counter == 4
             self.assertAlmostEqual(pdu.axial_cell_force, 142.142, places=4)
             self.assertAlmostEqual(pdu.lateral_cell_force, -142.142, places=4)
+        elif pdu.function_code == ILCFunction.FA_FORCE_AND_STATUS:
+            assert pdu.ilc_fault
+            assert pdu.dca_fault
+            assert pdu.communication_counter == 4
+            self.assertAlmostEqual(pdu.axial_cell_force, -142.142, places=4)
+            self.assertAlmostEqual(pdu.lateral_cell_force, 142.142, places=4)
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

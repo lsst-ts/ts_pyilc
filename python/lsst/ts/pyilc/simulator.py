@@ -32,6 +32,7 @@ from .pdu import (
     ChangeILCMode,
     ForceActuatorSetBoosterValveDCAGainRequest,
     ForceActuatorSetBoosterValveDCAGainResponse,
+    FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
@@ -53,6 +54,9 @@ from .pdu.firmware import (
     WriteVerifyApplicationResponse,
 )
 from .pdu.utils import ILCException
+
+# Global broadcast communication counter
+communication_counter = 0
 
 
 class SimulatedServerIDRequest(ServerIDRequest):
@@ -139,7 +143,14 @@ class SimulatedHardpointForceAndStatusRequest(HardpointForceAndStatusRequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         pdu = HardpointForceAndStatusResponse(dev_id=self.dev_id)
 
-        pdu.status = 42
+        global communication_counter
+
+        pdu.ilc_fault = True
+        pdu.limit_switch_cw = True
+        pdu.limit_switch_ccw = True
+        pdu.communication_counter = communication_counter & 0x0F
+        communication_counter += 1
+
         pdu.ssi_encoder_position = -8
         pdu.load_cell_force = 43.42
 
@@ -188,6 +199,11 @@ class SimulatedWriteVerifyApplicationRequest(WriteVerifyApplicationRequest):
         return pdu
 
 
+class SimulatedFreezeSensorValuesBroadcast(FreezeSensorValuesBroadcast):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> None:
+        return None
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -207,6 +223,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedEraseApplication,
                 SimulatedWriteApplicationPageRequest,
                 SimulatedWriteVerifyApplicationRequest,
+                SimulatedFreezeSensorValuesBroadcast,
             ],
         )
     )

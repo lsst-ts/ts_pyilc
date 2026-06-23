@@ -44,12 +44,27 @@ class HardpointForceAndStatusResponse(ModbusPDU):
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
-        self.status: int = 0
         self.ssi_encoder_position: int = 0
         self.load_cell_force: float = m.nan
 
+        self.ilc_fault: bool = False
+        self.limit_switch_cw: bool = False
+        self.limit_switch_ccw: bool = False
+        self.communication_counter: int = 0
+
     def encode(self) -> bytes:
-        return struct.pack(">Bif", self.status, self.ssi_encoder_position, self.load_cell_force)
+        status = (
+            (self.ilc_fault << 7)
+            | (self.limit_switch_cw << 5)
+            | (self.limit_switch_ccw << 4)
+            | (self.communication_counter & 0x0F)
+        )
+        return struct.pack(">Bif", status, self.ssi_encoder_position, self.load_cell_force)
 
     def decode(self, data: bytes) -> None:
-        (self.status, self.ssi_encoder_position, self.load_cell_force) = struct.unpack(">Bif", data)
+        (status, self.ssi_encoder_position, self.load_cell_force) = struct.unpack(">Bif", data)
+
+        self.ilc_fault = status & 0x80
+        self.limit_switch_cw = status & 0x20
+        self.limit_switch_ccw = status & 0x10
+        self.communication_counter = status & 0x0F

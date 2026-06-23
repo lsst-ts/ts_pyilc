@@ -33,6 +33,7 @@ from .pdu import (
     ChangeILCMode,
     ForceActuatorSetBoosterValveDCAGainRequest,
     ForceActuatorSetBoosterValveDCAGainResponse,
+    FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
@@ -51,6 +52,7 @@ from .pdu.firmware import (
     WriteVerifyApplicationResponse,
 )
 from .pdu.firmware import flash as flash_ilc
+from .pdu.utils import ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS
 
 # Setup history file tracking via standard readline
 HISTORY_FILE = os.path.expanduser("~/.ilccli_history")
@@ -306,7 +308,10 @@ async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> No
         click.echo(f"Error: {hp_status}")
         return
 
-    click.echo(f"Status: {hp_status.status}")
+    click.echo(f"ILC Fault: {hp_status.ilc_fault}")
+    click.echo(f"Limit switch CW: {hp_status.limit_switch_cw}")
+    click.echo(f"Limit switch CCW: {hp_status.limit_switch_ccw}")
+    click.echo(f"Communication countre: {hp_status.communication_counter}")
     click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
     click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
 
@@ -365,6 +370,27 @@ async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> 
 
     with click.progressbar(length=1000, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
         await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex), bar.update)
+
+
+@cli.command()
+@click.argument("communication_counter", type=int)
+@click.argument("broadcast", type=int, default=None)
+@pass_ctx
+async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broadcast: None | int) -> None:
+    if broadcast not in (ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS):
+        click.echo(
+            "Freeze sensor broadcast must be either"
+            f"{ELECTROMECHANICAL_BROADCAST_ADDRESS} or"
+            f"{PNEUMATIC_BROADCAST_ADDRESS} broadcast address."
+        )
+        return
+    freeze_sensor = await ctx.execute(FreezeSensorValuesBroadcast(address, communication_counter))
+
+    if freeze_sensor.isError():
+        click.echo(f"Error: {freeze_sensor}")
+        return
+
+    click.echo("Sensor values freezed.")
 
 
 async def main() -> None:

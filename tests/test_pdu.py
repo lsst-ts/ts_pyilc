@@ -133,7 +133,10 @@ class PduTestCase(unittest.TestCase):
             assert pdu.ssi_encoder_position == -8
             self.assertAlmostEqual(pdu.load_cell_force, 42.42, places=4)
         elif pdu.function_code == ILCFunction.HP_FORCE_AND_STATUS:
-            assert pdu.status == 2
+            assert not pdu.ilc_fault
+            assert not pdu.limit_switch_cw
+            assert not pdu.limit_switch_ccw
+            assert pdu.communication_counter == 2
             assert pdu.ssi_encoder_position == 42
             self.assertAlmostEqual(pdu.load_cell_force, -43.42, places=4)
         elif pdu.function_code == ILCFunction.SET_TEMP_ILC_ADDR:

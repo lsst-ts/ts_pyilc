@@ -25,6 +25,12 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
+ELECTROMECHANICAL_BROADCAST_ADDRESS = 248
+"""Broadcast address for electromechanical ILCs."""
+
+PNEUMATIC_BROADCAST_ADDRESS = 249
+"""Broadcast address for pneumatic ILCs."""
+
 DEFAULT_ILC_ADDRESS = 255
 """Address ILC uses in case TEDS is not connected."""
 

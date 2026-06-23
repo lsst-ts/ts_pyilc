@@ -29,6 +29,7 @@ from pymodbus.server import StartAsyncTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 
 from .pdu import (
+    ADCScanRate,
     ChangeILCMode,
     ForceActuatorForceAndStatusDAResponse,
     ForceActuatorForceAndStatusRequest,
@@ -48,6 +49,7 @@ from .pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCScanRate,
     SetILCTemporaryAddress,
 )
 from .pdu.firmware import (
@@ -278,6 +280,19 @@ class SimulatedForceActuatorForceAndStatusRequest(ForceActuatorForceAndStatusReq
         return pdu
 
 
+adc_scan_rate: ADCScanRate = ADCScanRate.RATE_50
+
+
+class SimulatedSetADCScanRate(SetADCScanRate):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        global adc_scan_rate
+        if self.scan_rate == ADCScanRate.NO_CHANGE:
+            self.scan_rate = adc_scan_rate
+        else:
+            adc_scan_rate = self.scan_rate
+        return self
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -301,6 +316,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedFreezeSensorValuesBroadcast,
                 SimulatedForceActuatorForceDemandDARequest,
                 SimulatedForceActuatorForceAndStatusRequest,
+                SimulatedSetADCScanRate,
             ],
         )
     )

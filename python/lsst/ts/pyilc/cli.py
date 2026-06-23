@@ -30,6 +30,7 @@ from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    ADCScanRate,
     ChangeILCMode,
     ForceActuatorForceAndStatusDAResponse,
     ForceActuatorForceAndStatusRequest,
@@ -49,6 +50,7 @@ from .pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCScanRate,
     SetILCTemporaryAddress,
 )
 from .pdu.firmware import (
@@ -104,6 +106,7 @@ class CLIContext:
         client.register(WriteVerifyApplicationResponse)
         client.register(ForceActuatorForceDemandDAResponse)
         client.register(ForceActuatorForceAndStatusDAResponse)
+        client.register(SetADCScanRate)
 
         self.client = client
         self.name = str(client)
@@ -503,6 +506,20 @@ async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | in
 
     click.echo(f"Axial measured force: {da_force.axial_cell_force:.4f}")
     click.echo(f"Lateral measured force: {da_force.lateral_cell_force:.4f}")
+
+
+@cli.command()
+@click.argument("scan_rate", type=int, default=ADCScanRate.NO_CHANGE)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int) -> None:
+    rate = await ctx.execute(SetADCScanRate(dev_id=ctx.dev_id(address), scan_rate=ADCScanRate(scan_rate)))
+
+    if rate.isError():
+        click.echo(f"Error: {rate}")
+        return
+
+    click.echo(f"Scan Rate: {rate.scan_rate.name}")
 
 
 async def main() -> None:

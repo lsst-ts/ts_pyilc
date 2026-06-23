@@ -31,6 +31,8 @@ from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
     ChangeILCMode,
+    ForceActuatorForceDemandDARequest,
+    ForceActuatorForceDemandDAResponse,
     ForceActuatorReadBoosterValveDCAGainsRequest,
     ForceActuatorSetBoosterValveDCAGainsRequest,
     ForceActuatorSetBoosterValveDCAGainsResponse,
@@ -97,6 +99,7 @@ class CLIContext:
         client.register(EraseApplication)
         client.register(WriteApplicationPageResponse)
         client.register(WriteVerifyApplicationResponse)
+        client.register(ForceActuatorForceDemandDAResponse)
 
         self.client = client
         self.name = str(client)
@@ -407,6 +410,42 @@ async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broa
         return
 
     click.echo("Sensor values freezed.")
+
+
+@cli.command()
+@click.argument("axial-force-setpoint", type=float)
+@click.argument("lateral-force-setpoint", type=float)
+@click.argument("slew-flag", type=int, default=0)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_force_demand_da(
+    ctx: CLIContext,
+    axial_force_setpoint: float,
+    lateral_force_setpoint: float,
+    slew_flag: int,
+    address: None | int,
+) -> None:
+    da_demand = await ctx.execute(
+        ForceActuatorForceDemandDARequest(
+            dev_id=ctx.dev_id(address),
+            slew_flag=slew_flag,
+            axial_force_setpoint=int(axial_force_setpoint * 1000),
+            lateral_force_setpoint=int(lateral_force_setpoint * 1000),
+        )
+    )
+
+    if da_demand.isError():
+        click.echo("Error: {da_demand}")
+        return
+
+    click.echo(f"ILC Fault: {da_demand.ilc_fault}")
+    click.echo(f"DCA Fault: {da_demand.dca_fault}")
+    click.echo(f"Communication counter: {da_demand.communication_counter}")
+
+    click.echo("")
+
+    click.echo(f"Axial measured force: {da_demand.axial_cell_force:.4f}")
+    click.echo(f"Lateral measured force: {da_demand.lateral_cell_force:.4f}")
 
 
 async def main() -> None:

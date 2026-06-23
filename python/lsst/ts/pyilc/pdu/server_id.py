@@ -50,7 +50,7 @@ class ServerIDResponse(ModbusPDU):
     firmware_name: str = ""
 
     def encode(self) -> bytes:
-        id_bytes = self.unique_id.to_bytes(6, byteorder="big")
+        id_bytes = self.unique_id.to_bytes(6, byteorder="big", signed=False)
         fn_len = len(self.firmware_name)
 
         return struct.pack(
@@ -85,5 +85,5 @@ class ServerIDResponse(ModbusPDU):
             firmware_name,
         ) = struct.unpack(f">6s6B{fn_len - 12}s", data[1:])
 
-        self.unique_id = int.from_bytes(id_bytes, byteorder="big")
+        self.unique_id = int.from_bytes(id_bytes, byteorder="big", signed=False)
         self.firmware_name = firmware_name.decode()

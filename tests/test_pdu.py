@@ -26,6 +26,8 @@ from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
     ChangeILCMode,
+    ForceActuatorForceDemandDARequest,
+    ForceActuatorForceDemandDAResponse,
     ForceActuatorReadBoosterValveDCAGainsRequest,
     ForceActuatorReadBoosterValveDCAGainsResponse,
     ForceActuatorSetBoosterValveDCAGainsRequest,
@@ -73,7 +75,7 @@ class PduTestCase(unittest.TestCase):
         ),
         (
             0x43,
-            b"\x43\x02\x00\x00\x00\x2a\xc2-\xae\x14",
+            b"\x43\x4d\x00\x00\x00\x2a\xc2-\xae\x14",
         ),
         (
             0x48,
@@ -86,6 +88,10 @@ class PduTestCase(unittest.TestCase):
         (
             0x4A,
             b"\x4aB)\xae\x14\xc2)\xb8R",
+        ),
+        (
+            0x4B,
+            b"\x4b\x43C\x0e$Z\xc3\x0e$Z",
         ),
     ]
 
@@ -104,6 +110,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(
             ForceActuatorReadBoosterValveDCAGainsRequest, ForceActuatorReadBoosterValveDCAGainsResponse
         )
+        server.add_pdu(ForceActuatorForceDemandDARequest, ForceActuatorForceDemandDAResponse)
 
         pdu = self.server.decode(frame)
 
@@ -142,10 +149,10 @@ class PduTestCase(unittest.TestCase):
             assert pdu.ssi_encoder_position == -8
             self.assertAlmostEqual(pdu.load_cell_force, 42.42, places=4)
         elif pdu.function_code == ILCFunction.HP_FORCE_AND_STATUS:
-            assert not pdu.ilc_fault
-            assert not pdu.limit_switch_cw
-            assert not pdu.limit_switch_ccw
-            assert pdu.communication_counter == 2
+            assert pdu.ilc_fault
+            assert pdu.limit_switch_cw
+            assert pdu.limit_switch_ccw
+            assert pdu.communication_counter == 4
             assert pdu.ssi_encoder_position == 42
             self.assertAlmostEqual(pdu.load_cell_force, -43.42, places=4)
         elif pdu.function_code == ILCFunction.SET_TEMP_ILC_ADDR:
@@ -155,6 +162,12 @@ class PduTestCase(unittest.TestCase):
         elif pdu.function_code == ILCFunction.FA_READ_BOOSTER_VALVE_DCA_GAINS:
             self.assertAlmostEqual(pdu.axial_gain, 42.42, places=4)
             self.assertAlmostEqual(pdu.lateral_gain, -42.43, places=4)
+        elif pdu.function_code == ILCFunction.FA_FORCE_DEMAND:
+            assert pdu.ilc_fault
+            assert pdu.dca_fault
+            assert pdu.communication_counter == 4
+            self.assertAlmostEqual(pdu.axial_cell_force, 142.142, places=4)
+            self.assertAlmostEqual(pdu.lateral_cell_force, -142.142, places=4)
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

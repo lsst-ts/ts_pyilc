@@ -30,6 +30,8 @@ from pymodbus.simulator import DataType, SimData, SimDevice
 
 from .pdu import (
     ChangeILCMode,
+    ForceActuatorForceDemandDARequest,
+    ForceActuatorForceDemandDAResponse,
     ForceActuatorReadBoosterValveDCAGainsRequest,
     ForceActuatorReadBoosterValveDCAGainsResponse,
     ForceActuatorSetBoosterValveDCAGainsRequest,
@@ -229,6 +231,22 @@ class SimulatedFreezeSensorValuesBroadcast(FreezeSensorValuesBroadcast):
         return None
 
 
+class SimulatedForceActuatorForceDemandDARequest(ForceActuatorForceDemandDARequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ForceActuatorForceDemandDAResponse(dev_id=self.dev_id)
+
+        global communication_counter
+
+        pdu.ilc_fault = True
+        pdu.dca_fault = True
+        pdu.communication_counter = communication_counter
+
+        pdu.axial_cell_force = self.axial_force_setpoint / 1000.0
+        pdu.lateral_cell_force = self.lateral_force_setpoint / 1000.0
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -250,6 +268,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedWriteApplicationPageRequest,
                 SimulatedWriteVerifyApplicationRequest,
                 SimulatedFreezeSensorValuesBroadcast,
+                SimulatedForceActuatorForceDemandDARequest,
             ],
         )
     )

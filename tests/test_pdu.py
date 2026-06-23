@@ -25,6 +25,7 @@ from parameterized import parameterized
 from pymodbus.pdu import DecodePDU
 
 from lsst.ts.pyilc.pdu import (
+    ADCScanRate,
     ChangeILCMode,
     ForceActuatorForceAndStatusDAResponse,
     ForceActuatorForceAndStatusRequest,
@@ -42,6 +43,7 @@ from lsst.ts.pyilc.pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCScanRate,
     SetILCTemporaryAddress,
 )
 from lsst.ts.pyilc.pdu.utils import ILCFunction
@@ -99,6 +101,10 @@ class PduTestCase(unittest.TestCase):
             0x4C,
             b"\x4c\x43\xc3\x0e$ZC\x0e$Z",
         ),
+        (
+            0x50,
+            b"\x50\x02",
+        ),
     ]
 
     @parameterized.expand(responses)
@@ -118,6 +124,7 @@ class PduTestCase(unittest.TestCase):
         )
         server.add_pdu(ForceActuatorForceDemandDARequest, ForceActuatorForceDemandDAResponse)
         server.add_pdu(ForceActuatorForceAndStatusRequest, ForceActuatorForceAndStatusDAResponse)
+        server.add_pdu(SetADCScanRate, SetADCScanRate)
 
         pdu = self.server.decode(frame)
 
@@ -181,6 +188,8 @@ class PduTestCase(unittest.TestCase):
             assert pdu.communication_counter == 4
             self.assertAlmostEqual(pdu.axial_cell_force, -142.142, places=4)
             self.assertAlmostEqual(pdu.lateral_cell_force, 142.142, places=4)
+        elif pdu.function_code == ILCFunction.SET_ADC_SCANRATE:
+            assert pdu.scan_rate == ADCScanRate.RATE_100
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

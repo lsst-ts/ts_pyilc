@@ -19,13 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
-
 __all__ = ["SetILCTemporaryAddress"]
 
 import struct
 
 from pymodbus.pdu import ModbusPDU
+
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 
 class SetILCTemporaryAddress(ModbusPDU):

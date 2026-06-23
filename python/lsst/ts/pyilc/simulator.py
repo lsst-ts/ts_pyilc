@@ -45,6 +45,7 @@ from .pdu import (
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    Reset,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
@@ -293,6 +294,11 @@ class SimulatedSetADCScanRate(SetADCScanRate):
         return self
 
 
+class SimulatedReset(Reset):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        return self
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -317,6 +323,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedForceActuatorForceDemandDARequest,
                 SimulatedForceActuatorForceAndStatusRequest,
                 SimulatedSetADCScanRate,
+                SimulatedReset,
             ],
         )
     )

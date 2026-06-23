@@ -46,6 +46,7 @@ from .pdu import (
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    Reset,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
@@ -107,6 +108,7 @@ class CLIContext:
         client.register(ForceActuatorForceDemandDAResponse)
         client.register(ForceActuatorForceAndStatusDAResponse)
         client.register(SetADCScanRate)
+        client.register(Reset)
 
         self.client = client
         self.name = str(client)
@@ -520,6 +522,19 @@ async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int
         return
 
     click.echo(f"Scan Rate: {rate.scan_rate.name}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def reset(ctx: CLIContext, address: None | int) -> None:
+    reset_response = await ctx.execute(Reset(dev_id=ctx.dev_id(address)))
+
+    if reset_response.isError():
+        click.echo(f"Error: {reset_response}")
+        return
+
+    click.echo(f"ILC {address} reseted.")
 
 
 async def main() -> None:

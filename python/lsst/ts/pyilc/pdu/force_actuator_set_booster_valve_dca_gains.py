@@ -19,17 +19,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ForceActuatorSetBoosterValveDCAGainRequest", "ForceActuatorSetBoosterValveDCAGainResponse"]
+__all__ = ["ForceActuatorSetBoosterValveDCAGainsRequest", "ForceActuatorSetBoosterValveDCAGainsResponse"]
 
 import math as m
 import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCResponse
 
 
-class ForceActuatorSetBoosterValveDCAGainRequest(ModbusPDU):
+class ForceActuatorSetBoosterValveDCAGainsRequest(ModbusPDU):
     function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS
     rtu_frame_size = 8
 
@@ -48,11 +48,5 @@ class ForceActuatorSetBoosterValveDCAGainRequest(ModbusPDU):
         (self.axial_gain, self.lateral_gain) = struct.unpack(">ff", data)
 
 
-class ForceActuatorSetBoosterValveDCAGainResponse(ModbusPDU):
+class ForceActuatorSetBoosterValveDCAGainsResponse(ILCResponse):
     function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS
-
-    def encode(self) -> bytes:
-        return b""
-
-    def decode(self, data: bytes) -> None:
-        pass

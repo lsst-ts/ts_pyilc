@@ -19,12 +19,32 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .server_id import ServerIDRequest, ServerIDResponse
-from .server_status import ServerStatusRequest, ServerStatusResponse
-from .change_ilc_mode import ILCMode, ChangeILCMode
-from .hardpoint_step_motor_move import HardpointStepMotorMoveRequest, HardpointStepMotorMoveResponse
-from .hardpoint_force_and_status import HardpointForceAndStatusRequest, HardpointForceAndStatusResponse
-from .set_ilc_temporary_address import SetILCTemporaryAddress
-from .force_actuator_set_booster_valve_dca_gains import ForceActuatorSetBoosterValveDCAGainsRequest, ForceActuatorSetBoosterValveDCAGainsResponse
-from .force_actuator_read_booster_valve_dca_gains import ForceActuatorReadBoosterValveDCAGainsRequest, ForceActuatorReadBoosterValveDCAGainsResponse
-from .freeze_sensor_values import FreezeSensorValuesBroadcast
+__all__ = ["ForceActuatorReadBoosterValveDCAGainsRequest", "ForceActuatorReadBoosterValveDCAGainsResponse"]
+
+import math as m
+import struct
+
+from pymodbus.pdu import ModbusPDU
+
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+
+
+class ForceActuatorReadBoosterValveDCAGainsRequest(ILCRequest):
+    function_code = ILCFunction.FA_READ_BOOSTER_VALVE_DCA_GAINS
+
+
+class ForceActuatorReadBoosterValveDCAGainsResponse(ModbusPDU):
+    function_code = ILCFunction.FA_READ_BOOSTER_VALVE_DCA_GAINS
+    rtu_frame_size = 8
+
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
+        super().__init__(dev_id=dev_id)
+
+        self.axial_gain = m.nan
+        self.lateral_gain = m.nan
+
+    def encode(self) -> bytes:
+        return struct.pack(">ff", self.axial_gain, self.lateral_gain)
+
+    def decode(self, data: bytes) -> None:
+        (self.axial_gain, self.lateral_gain) = struct.unpack(">ff", data)

@@ -30,8 +30,10 @@ from pymodbus.simulator import DataType, SimData, SimDevice
 
 from .pdu import (
     ChangeILCMode,
-    ForceActuatorSetBoosterValveDCAGainRequest,
-    ForceActuatorSetBoosterValveDCAGainResponse,
+    ForceActuatorReadBoosterValveDCAGainsRequest,
+    ForceActuatorReadBoosterValveDCAGainsResponse,
+    ForceActuatorSetBoosterValveDCAGainsRequest,
+    ForceActuatorSetBoosterValveDCAGainsResponse,
     FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
@@ -164,9 +166,32 @@ class SimulatedSetILCTemporaryAddress(SetILCTemporaryAddress):
         return pdu
 
 
-class SimulatedForceActuatorSetBoosterValveDCAGainRequest(ForceActuatorSetBoosterValveDCAGainRequest):
+axial_gain = 42.42
+lateral_gain = -42.42
+
+
+class SimulatedForceActuatorSetBoosterValveDCAGainsRequest(ForceActuatorSetBoosterValveDCAGainsRequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
-        pdu = ForceActuatorSetBoosterValveDCAGainResponse(dev_id=self.dev_id)
+        global axial_gain
+        global lateral_gain
+
+        axial_gain = self.axial_gain
+        lateral_gain = self.lateral_gain
+
+        pdu = ForceActuatorSetBoosterValveDCAGainsResponse(dev_id=self.dev_id)
+
+        return pdu
+
+
+class SimulatedForceActuatorReadBoosterValveDCAGainsRequest(ForceActuatorReadBoosterValveDCAGainsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ForceActuatorReadBoosterValveDCAGainsResponse(dev_id=self.dev_id)
+
+        global axial_gain
+        global lateral_gain
+
+        pdu.axial_gain = self.axial_gain
+        pdu.lateral_gain = self.lateral_gain
 
         return pdu
 
@@ -218,7 +243,8 @@ async def main(host: str, port: int) -> None:
                 SimulatedHardpointStepMoveRequest,
                 SimulatedHardpointForceAndStatusRequest,
                 SimulatedSetILCTemporaryAddress,
-                SimulatedForceActuatorSetBoosterValveDCAGainRequest,
+                SimulatedForceActuatorSetBoosterValveDCAGainsRequest,
+                SimulatedForceActuatorReadBoosterValveDCAGainsRequest,
                 SimulatedWriteApplicationStatesReques,
                 SimulatedEraseApplication,
                 SimulatedWriteApplicationPageRequest,

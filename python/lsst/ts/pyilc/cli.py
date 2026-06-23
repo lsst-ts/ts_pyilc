@@ -31,8 +31,9 @@ from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
     ChangeILCMode,
-    ForceActuatorSetBoosterValveDCAGainRequest,
-    ForceActuatorSetBoosterValveDCAGainResponse,
+    ForceActuatorReadBoosterValveDCAGainsRequest,
+    ForceActuatorSetBoosterValveDCAGainsRequest,
+    ForceActuatorSetBoosterValveDCAGainsResponse,
     FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
@@ -91,7 +92,7 @@ class CLIContext:
         client.register(HardpointStepMotorMoveResponse)
         client.register(HardpointForceAndStatusResponse)
         client.register(SetILCTemporaryAddress)
-        client.register(ForceActuatorSetBoosterValveDCAGainResponse)
+        client.register(ForceActuatorSetBoosterValveDCAGainsResponse)
         client.register(WriteApplicationStatesResponse)
         client.register(EraseApplication)
         client.register(WriteApplicationPageResponse)
@@ -339,12 +340,12 @@ async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: 
 @click.argument("lateral_gain", type=float)
 @click.argument("address", type=int, default=None)
 @pass_ctx
-async def force_actuator_set_booster_valve_dca_gain(
+async def force_actuator_set_booster_valve_dca_gains(
     ctx: CLIContext, axial_gain: float, lateral_gain: float, address: None | int
 ) -> None:
     "Set booster valves DCA gains."
     set_gains = await ctx.execute(
-        ForceActuatorSetBoosterValveDCAGainRequest(
+        ForceActuatorSetBoosterValveDCAGainsRequest(
             dev_id=ctx.dev_id(address),
             axial_gain=axial_gain,
             lateral_gain=lateral_gain,
@@ -356,6 +357,21 @@ async def force_actuator_set_booster_valve_dca_gain(
         return
 
     click.echo(f"Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_read_booster_valve_dca_gains(ctx: CLIContext, address: None | int) -> None:
+    "Set booster valves DCA gains."
+    read_gains = await ctx.execute(ForceActuatorReadBoosterValveDCAGainsRequest(dev_id=ctx.dev_id(address)))
+
+    if read_gains.isError():
+        click.echo(f"Error: {read_gains}")
+        return
+
+    click.echo(f"Axial gain: {read_gains.axial_gain:.4f}")
+    click.echo(f"Lateral gain: {read_gains.lateral_gain:.4f}")
 
 
 @cli.command()

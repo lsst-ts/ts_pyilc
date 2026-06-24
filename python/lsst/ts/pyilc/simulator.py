@@ -57,6 +57,10 @@ from .pdu import (
     SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
+    ThermalDemandRequest,
+    ThermalDemandResponse,
+    ThermalStatusRequest,
+    ThermalStatusResponse,
 )
 from .pdu.firmware import (
     EraseApplication,
@@ -325,6 +329,46 @@ class SimulatedReadDACValuesRequest(ReadDACValuesRequest):
         return pdu
 
 
+class SimulatedThermalDemandRequest(ThermalDemandRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ThermalDemandResponse(dev_id=device_id)
+
+        pdu.ilc_fault = True
+        pdu.heater_disabled = False
+        pdu.breaker_1 = True
+        pdu.breaker_2 = True
+
+        global communication_counter
+
+        pdu.communication_counter = communication_counter
+
+        pdu.differential_temperature = -42.54
+        pdu.fan_rpm = 42
+        pdu.absolute_temperature = 42.34
+
+        return pdu
+
+
+class SimulatedThermalStatusRequest(ThermalStatusRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ThermalStatusResponse(dev_id=device_id)
+
+        pdu.ilc_fault = True
+        pdu.heater_disabled = False
+        pdu.breaker_1 = True
+        pdu.breaker_2 = False
+
+        global communication_counter
+
+        pdu.communication_counter = communication_counter
+
+        pdu.differential_temperature = 42.54
+        pdu.fan_rpm = 0x42
+        pdu.absolute_temperature = -42.34
+
+        return pdu
+
+
 class SimulatedReset(Reset):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         return self
@@ -356,6 +400,8 @@ async def main(host: str, port: int) -> None:
                 SimulatedSetADCScanRate,
                 SimulatedSetADCChannelOffsetAndSensitivityRequest,
                 SimulatedReadDACValuesRequest,
+                SimulatedThermalDemandRequest,
+                SimulatedThermalStatusRequest,
                 SimulatedReset,
             ],
         )

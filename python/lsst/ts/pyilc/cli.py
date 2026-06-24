@@ -57,6 +57,10 @@ from .pdu import (
     SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
+    ThermalDemandRequest,
+    ThermalDemandResponse,
+    ThermalStatusRequest,
+    ThermalStatusResponse,
 )
 from .pdu.firmware import (
     EraseApplication,
@@ -114,6 +118,8 @@ class CLIContext:
         client.register(SetADCScanRate)
         client.register(SetADCChannelOffsetAndSensitivityResponse)
         client.register(ReadDACValuesResponse)
+        client.register(ThermalDemandResponse)
+        client.register(ThermalStatusResponse)
         client.register(Reset)
 
         self.client = client
@@ -354,8 +360,8 @@ async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: 
 
 
 @cli.command()
-@click.argument("axial_gain", type=float)
-@click.argument("lateral_gain", type=float)
+@click.argument("axial-gain", type=float)
+@click.argument("lateral-gain", type=float)
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def force_actuator_set_booster_valve_dca_gains(
@@ -407,7 +413,7 @@ async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> 
 
 
 @cli.command()
-@click.argument("communication_counter", type=int)
+@click.argument("communication-counter", type=int)
 @click.argument("broadcast", type=int, default=None)
 @pass_ctx
 async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broadcast: None | int) -> None:
@@ -517,7 +523,7 @@ async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | in
 
 
 @cli.command()
-@click.argument("scan_rate", type=int, default=ADCScanRate.NO_CHANGE)
+@click.argument("scan-rate", type=int, default=ADCScanRate.NO_CHANGE)
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int) -> None:
@@ -566,6 +572,38 @@ async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
     click.echo(f"DAC 2 (axial pull): {dac_values.dac2_axial_pull}")
     click.echo(f"DAC 3 (lateral push): {dac_values.dac3_lateral_push}")
     click.echo(f"DAC 4 (lateral pull): {dac_values.dac4_lateral_pull}")
+
+
+@cli.command()
+@click.argument("heater-pwm", type=int)
+@click.argument("fan-pwm", type=int)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def thermal_demand(ctx: CLIContext, heater_pwm: int, fan_pwm: int, address: None | int) -> None:
+    thermal = await ctx.execute(ThermalDemandRequest(ctx.dev_id(address), heater_pwm // 10, fan_pwm // 10))
+
+    if thermal.isError():
+        click.echo(f"Error: {thermal}")
+        return
+
+    click.echo(f"Differential temperature: {thermal.differential_temperature:.2f} °C")
+    click.echo(f"Fan RPM: {thermal.fan_rpm * 10} rpm")
+    click.echo(f"Absolute temperature: {thermal.absolute_temperature:.2f} °C")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def thermal_status(ctx: CLIContext, address: None | int) -> None:
+    thermal = await ctx.execute(ThermalStatusRequest(ctx.dev_id(address)))
+
+    if thermal.isError():
+        click.echo(f"Error: {thermal}")
+        return
+
+    click.echo(f"Differential temperature: {thermal.differential_temperature:.2f} °C")
+    click.echo(f"Fan RPM: {thermal.fan_rpm * 10} rpm")
+    click.echo(f"Absolute temperature: {thermal.absolute_temperature:.2f} °C")
 
 
 @cli.command()

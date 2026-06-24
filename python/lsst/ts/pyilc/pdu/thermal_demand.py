@@ -84,6 +84,7 @@ class ThermalDemandResponse(ModbusPDU):
             | (self.breaker_2 << 3)
             | ((self.communication_counter << 4) & 0xF0)
         )
+
         return struct.pack(
             ">BfBf", status, self.differential_temperature, self.fan_rpm, self.absolute_temperature
         )
@@ -95,7 +96,7 @@ class ThermalDemandResponse(ModbusPDU):
 
         self.ilc_fault = bool(status & 0x01)
         self.heater_disabled = bool(status & 0x02)
-        self.breaker_1 = bool(status & 0x03)
-        self.breaker_2 = bool(status & 0x04)
+        self.breaker_1 = bool(status & 0x04)
+        self.breaker_2 = bool(status & 0x08)
 
         self.communication_counter = (status >> 4) & 0x0F

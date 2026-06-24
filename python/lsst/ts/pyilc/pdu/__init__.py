@@ -35,3 +35,4 @@ from .reset import Reset
 from .set_adc_channel_offset_and_sensitivity import SetADCChannelOffsetAndSensitivityRequest, SetADCChannelOffsetAndSensitivityResponse
 from .read_dac_values import ReadDACValuesRequest, ReadDACValuesResponse
 from .thermal_demand import ThermalDemandRequest, ThermalDemandResponse
+from .thermal_status import ThermalStatusRequest, ThermalStatusResponse

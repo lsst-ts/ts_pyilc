@@ -50,6 +50,8 @@ from lsst.ts.pyilc.pdu import (
     SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
+    ThermalDemandRequest,
+    ThermalDemandResponse,
 )
 from lsst.ts.pyilc.pdu.utils import ILCFunction
 
@@ -82,6 +84,7 @@ class PduTestCase(unittest.TestCase):
         (0x50, b"\x50\x02"),
         (0x51, b"\x51"),
         (0x52, b"\x52\x01\x02\x03\x04\x05\x06\xff\xfe"),
+        (0x58, b"\x58\x4f\xc2)\xb8R\x42B)\xae\x14"),
         (0x6B, b"\x6b"),
     ]
 
@@ -105,6 +108,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(SetADCScanRate, SetADCScanRate)
         server.add_pdu(SetADCChannelOffsetAndSensitivityRequest, SetADCChannelOffsetAndSensitivityResponse)
         server.add_pdu(ReadDACValuesRequest, ReadDACValuesResponse)
+        server.add_pdu(ThermalDemandRequest, ThermalDemandResponse)
         server.add_pdu(Reset, Reset)
 
         pdu = self.server.decode(frame)
@@ -178,6 +182,15 @@ class PduTestCase(unittest.TestCase):
             assert pdu.dac2_axial_pull == 0x0304
             assert pdu.dac3_lateral_push == 0x0506
             assert pdu.dac4_lateral_pull == 0xFFFE
+        elif pdu.function_code == ILCFunction.TS_DEMAND:
+            assert pdu.ilc_fault
+            assert pdu.heater_disabled
+            assert pdu.breaker_1
+            assert pdu.breaker_2
+            assert pdu.communication_counter == 4
+            self.assertAlmostEqual(pdu.differential_temperature, -42.43, places=4)
+            assert pdu.fan_rpm == 0x42
+            self.assertAlmostEqual(pdu.absolute_temperature, 42.42, places=4)
         elif pdu.function_code == ILCFunction.RESET_SERVER:
             pass
         else:

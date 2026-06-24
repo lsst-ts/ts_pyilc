@@ -91,8 +91,8 @@ class ForceActuatorForceDemandSAResponse(ModbusPDU):
     def decode(self, data: bytes) -> None:
         (status, self.load_cell_force) = struct.unpack(">Bf", data)
 
-        self.ilc_fault = status & 0x01
-        self.dca_fault = status & 0x02
+        self.ilc_fault = bool(status & 0x01)
+        self.dca_fault = bool(status & 0x02)
         self.communication_counter = (status >> 4) & 0x0F
 
 

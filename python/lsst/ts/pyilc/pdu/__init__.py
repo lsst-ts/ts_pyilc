@@ -39,3 +39,4 @@ from .thermal_status import ThermalStatusRequest, ThermalStatusResponse
 from .set_reheater_gains import SetReheaterGainsRequest, SetReheaterGainsResponse
 from .read_reheater_gains import ReadReheaterGainsRequest, ReadReheaterGainsResponse
 from .read_calibration_data import ReadCalibrationDataRequest, ReadCalibrationDataResponse
+from .read_mezzanine_pressure import ReadMezzaninePressureRequest, ReadMezzaninePressureResponse

@@ -44,6 +44,8 @@ from lsst.ts.pyilc.pdu import (
     ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
+    ReadMezzaninePressureRequest,
+    ReadMezzaninePressureResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -102,6 +104,7 @@ class PduTestCase(unittest.TestCase):
             0x6E,
             b"\x6eB(p\xa4B(\xd7\nB)=qB)\xa3\xd7B*\n=B*p\xa4B*\xd7\nB+=qB+\xa3\xd7B,\n=B,p\xa4B,\xd7\nB-=qB-\xa3\xd7B.\n=B.p\xa4B.\xd7\nB/=qB/\xa3\xd7B0\n=B0p\xa4B0\xd7\nB1=qB1\xa3\xd7",
         ),
+        (0x77, b"\x77B(p\xa4B(\xd7\nB)=qB)\xa3\xd7"),
     ]
 
     @parameterized.expand(responses)
@@ -128,8 +131,9 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ThermalStatusRequest, ThermalStatusResponse)
         server.add_pdu(SetReheaterGainsRequest, SetReheaterGainsResponse)
         server.add_pdu(ReadReheaterGainsRequest, ReadReheaterGainsResponse)
-        server.add_pdu(ReadCalibrationDataRequest, ReadCalibrationDataResponse)
         server.add_pdu(Reset, Reset)
+        server.add_pdu(ReadCalibrationDataRequest, ReadCalibrationDataResponse)
+        server.add_pdu(ReadMezzaninePressureRequest, ReadMezzaninePressureResponse)
 
         pdu = self.server.decode(frame)
 
@@ -225,6 +229,8 @@ class PduTestCase(unittest.TestCase):
         elif pdu.function_code == ILCFunction.READ_REHEATER_GAINS:
             self.assertAlmostEqual(pdu.p, -42.43, places=4)
             self.assertAlmostEqual(pdu.i, 42.42, places=4)
+        elif pdu.function_code == ILCFunction.RESET_SERVER:
+            pass
         elif pdu.function_code == ILCFunction.READ_CALIBRATION_DATA:
 
             def __assert_array(actual: list[float], start: float) -> None:
@@ -238,9 +244,11 @@ class PduTestCase(unittest.TestCase):
             __assert_array(pdu.backup_adc_calibration, 43.31)
             __assert_array(pdu.backup_sensor_offset, 43.71)
             __assert_array(pdu.backup_sensor_sensitivity, 44.11)
-
-        elif pdu.function_code == ILCFunction.RESET_SERVER:
-            pass
+        elif pdu.function_code == ILCFunction.READ_MEZZANINE_PRESSURE:
+            self.assertAlmostEqual(pdu.axial_push, 42.11, places=4)
+            self.assertAlmostEqual(pdu.axial_pull, 42.21, places=4)
+            self.assertAlmostEqual(pdu.lateral_pull, 42.31, places=4)
+            self.assertAlmostEqual(pdu.lateral_push, 42.41, places=4)
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

@@ -50,6 +50,8 @@ from .pdu import (
     ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
+    ReadMezzaninePressureRequest,
+    ReadMezzaninePressureResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -130,6 +132,7 @@ class CLIContext:
         client.register(ReadReheaterGainsResponse)
         client.register(Reset)
         client.register(ReadCalibrationDataResponse)
+        client.register(ReadMezzaninePressureResponse)
 
         self.client = client
         self.name = str(client)
@@ -688,6 +691,23 @@ async def read_calibration_data(ctx: CLIContext, address: None | int) -> None:
     click.echo(f"Backup ADC          {__format_array(calib_data.backup_adc_calibration)}")
     click.echo(f"Backup Offset       {__format_array(calib_data.backup_sensor_offset)}")
     click.echo(f"Backup Sensitivity  {__format_array(calib_data.backup_sensor_sensitivity)}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_pressure(ctx: CLIContext, address: None | int) -> None:
+    dev_id = ctx.dev_id(address)
+    pressure = await ctx.execute(ReadMezzaninePressureRequest(dev_id))
+
+    if pressure.isError():
+        click.echo(f"Error: {pressure}")
+        return
+
+    click.echo(f"Axial push: {pressure.axial_push:.2f} psi")
+    click.echo(f"Axial pull: {pressure.axial_pull:.2f} psi")
+    click.echo(f"Lateral pull: {pressure.lateral_pull:.2f} psi")
+    click.echo(f"Lateral push: {pressure.lateral_push:.2f} psi")
 
 
 async def main() -> None:

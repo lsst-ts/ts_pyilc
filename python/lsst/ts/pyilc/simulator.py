@@ -51,6 +51,8 @@ from .pdu import (
     ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
+    ReadMezzaninePressureRequest,
+    ReadMezzaninePressureResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -419,6 +421,18 @@ class SimulatedReadCalibrationDataRequest(ReadCalibrationDataRequest):
         return pdu
 
 
+class SimulatedReadMezzaninePressureRequest(ReadMezzaninePressureRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMezzaninePressureResponse(device_id)
+
+        pdu.axial_push = 4.2
+        pdu.axial_pull = -4.1
+        pdu.lateral_pull = 4.242
+        pdu.lateral_push = -424.2
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -451,6 +465,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedReadReheaterGainsRequest,
                 SimulatedReset,
                 SimulatedReadCalibrationDataRequest,
+                SimulatedReadMezzaninePressureRequest,
             ],
         )
     )

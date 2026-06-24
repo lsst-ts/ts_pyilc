@@ -194,7 +194,8 @@ def address(ctx: CLIContext, address: int) -> None:
 @pass_ctx
 async def report_server_id(ctx: CLIContext, address: None | int) -> None:
     """Read coils or registers from the server."""
-    server_id = await ctx.execute(ServerIDRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    server_id = await ctx.execute(ServerIDRequest(dev_id=dev_id))
     if server_id.isError():
         click.echo(f"Error: {server_id}")
         return
@@ -213,7 +214,8 @@ async def report_server_id(ctx: CLIContext, address: None | int) -> None:
 @pass_ctx
 async def report_server_status(ctx: CLIContext, address: None | int) -> None:
     """Report ILC status - mode, status and faults."""
-    server_status = await ctx.execute(ServerStatusRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    server_status = await ctx.execute(ServerStatusRequest(dev_id=dev_id))
     if server_status.isError():
         click.echo(f"Error: {server_status}")
         return
@@ -230,7 +232,8 @@ async def report_server_status(ctx: CLIContext, address: None | int) -> None:
 async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> None:
     """Command ILC to change its mode. Reads ILC mode if new mode is not
     provided."""
-    ilc_mode = await ctx.execute(ChangeILCMode(dev_id=ctx.dev_id(address), new_mode=mode))
+    dev_id = ctx.dev_id(address)
+    ilc_mode = await ctx.execute(ChangeILCMode(dev_id=dev_id, new_mode=mode))
 
     if ilc_mode.isError():
         click.echo(f"Error: {ilc_mode}")
@@ -310,9 +313,8 @@ async def bootloader(ctx: CLIContext, address: None | int) -> None:
 @pass_ctx
 async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None | int) -> None:
     """Command ILC to move hardpoint step motor."""
-    hp_status = await ctx.execute(
-        HardpointStepMotorMoveRequest(dev_id=ctx.dev_id(address), step_motor_command=steps)
-    )
+    dev_id = ctx.dev_id(address)
+    hp_status = await ctx.execute(HardpointStepMotorMoveRequest(dev_id=dev_id, step_motor_command=steps))
 
     if hp_status.isError():
         click.echo(f"Error: {hp_status}")
@@ -327,7 +329,8 @@ async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None |
 @pass_ctx
 async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> None:
     """Command ILC to move hardpoint step motor."""
-    hp_status = await ctx.execute(HardpointForceAndStatusRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    hp_status = await ctx.execute(HardpointForceAndStatusRequest(dev_id=dev_id))
 
     if hp_status.isError():
         click.echo(f"Error: {hp_status}")
@@ -347,9 +350,8 @@ async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> No
 @pass_ctx
 async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: None | int) -> None:
     "Set ILC temporary address. Sets default address to the new address."
-    address_status = await ctx.execute(
-        SetILCTemporaryAddress(dev_id=ctx.dev_id(address), new_address=new_address)
-    )
+    dev_id = ctx.dev_id(address)
+    address_status = await ctx.execute(SetILCTemporaryAddress(dev_id=dev_id, new_address=new_address))
 
     if address_status.isError():
         click.echo(f"Error: {address_status}")
@@ -368,11 +370,10 @@ async def force_actuator_set_booster_valve_dca_gains(
     ctx: CLIContext, axial_gain: float, lateral_gain: float, address: None | int
 ) -> None:
     "Set booster valves DCA gains."
+    dev_id = ctx.dev_id(address)
     set_gains = await ctx.execute(
         ForceActuatorSetBoosterValveDCAGainsRequest(
-            dev_id=ctx.dev_id(address),
-            axial_gain=axial_gain,
-            lateral_gain=lateral_gain,
+            dev_id=dev_id, axial_gain=axial_gain, lateral_gain=lateral_gain
         )
     )
 
@@ -380,7 +381,9 @@ async def force_actuator_set_booster_valve_dca_gains(
         click.echo(f"Error: {set_gains}")
         return
 
-    click.echo(f"Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}")
+    click.echo(
+        f"ILC {dev_id} Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}"
+    )
 
 
 @cli.command()
@@ -388,7 +391,8 @@ async def force_actuator_set_booster_valve_dca_gains(
 @pass_ctx
 async def force_actuator_read_booster_valve_dca_gains(ctx: CLIContext, address: None | int) -> None:
     "Set booster valves DCA gains."
-    read_gains = await ctx.execute(ForceActuatorReadBoosterValveDCAGainsRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    read_gains = await ctx.execute(ForceActuatorReadBoosterValveDCAGainsRequest(dev_id=dev_id))
 
     if read_gains.isError():
         click.echo(f"Error: {read_gains}")
@@ -404,19 +408,20 @@ async def force_actuator_read_booster_valve_dca_gains(ctx: CLIContext, address: 
 @pass_ctx
 async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> None:
     """Flash new ILC firmware."""
+    dev_id = ctx.dev_id(address)
     if ctx.debug:
-        await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex))
+        await flash_ilc(ctx.client, dev_id, IntelHex(intel_hex))
         return
 
     with click.progressbar(length=1000, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
-        await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex), bar.update)
+        await flash_ilc(ctx.client, dev_id, IntelHex(intel_hex), bar.update)
 
 
 @cli.command()
 @click.argument("communication-counter", type=int)
 @click.argument("broadcast", type=int, default=None)
 @pass_ctx
-async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broadcast: None | int) -> None:
+async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broadcast: int) -> None:
     if broadcast not in (ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS):
         click.echo(
             "Freeze sensor broadcast must be either"
@@ -444,12 +449,9 @@ async def force_actuator_force_demand_sa(
     slew_flag: int,
     address: None | int,
 ) -> None:
+    dev_id = ctx.dev_id(address)
     sa_demand = await ctx.execute(
-        ForceActuatorForceDemandSARequest(
-            dev_id=ctx.dev_id(address),
-            slew_flag=slew_flag,
-            force_setpoint=int(force_setpoint * 1000),
-        )
+        ForceActuatorForceDemandSARequest(dev_id, slew_flag, int(force_setpoint * 1000))
     )
 
     if sa_demand.isError():
@@ -479,12 +481,10 @@ async def force_actuator_force_demand_da(
     slew_flag: int,
     address: None | int,
 ) -> None:
+    dev_id = ctx.dev_id(address)
     da_demand = await ctx.execute(
         ForceActuatorForceDemandDARequest(
-            dev_id=ctx.dev_id(address),
-            slew_flag=slew_flag,
-            axial_force_setpoint=int(axial_force_setpoint * 1000),
-            lateral_force_setpoint=int(lateral_force_setpoint * 1000),
+            dev_id, slew_flag, int(axial_force_setpoint * 1000), int(lateral_force_setpoint * 1000)
         )
     )
 
@@ -506,7 +506,8 @@ async def force_actuator_force_demand_da(
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | int) -> None:
-    da_force = await ctx.execute(ForceActuatorForceAndStatusRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    da_force = await ctx.execute(ForceActuatorForceAndStatusRequest(dev_id))
 
     if da_force.isError():
         click.echo("Error: {da_force}")
@@ -527,7 +528,8 @@ async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | in
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int) -> None:
-    rate = await ctx.execute(SetADCScanRate(dev_id=ctx.dev_id(address), scan_rate=ADCScanRate(scan_rate)))
+    dev_id = ctx.dev_id(address)
+    rate = await ctx.execute(SetADCScanRate(dev_id, ADCScanRate(scan_rate)))
 
     if rate.isError():
         click.echo(f"Error: {rate}")
@@ -545,10 +547,9 @@ async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int
 async def set_adc_channel_offset_and_sensitivity(
     ctx: CLIContext, sensor_channel: int, offset: float, sensitivity: float, address: None | int
 ) -> None:
+    dev_id = ctx.dev_id(address)
     channel = await ctx.execute(
-        SetADCChannelOffsetAndSensitivityRequest(
-            dev_id=ctx.dev_id(address), sensor_channel=sensor_channel, offset=offset, sensitivity=sensitivity
-        )
+        SetADCChannelOffsetAndSensitivityRequest(dev_id, sensor_channel, offset, sensitivity)
     )
 
     if channel.isError():
@@ -562,7 +563,8 @@ async def set_adc_channel_offset_and_sensitivity(
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
-    dac_values = await ctx.execute(ReadDACValuesRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    dac_values = await ctx.execute(ReadDACValuesRequest(dev_id))
 
     if dac_values.isError():
         click.echo("Error: {dac_values}")
@@ -580,7 +582,8 @@ async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def thermal_demand(ctx: CLIContext, heater_pwm: int, fan_pwm: int, address: None | int) -> None:
-    thermal = await ctx.execute(ThermalDemandRequest(ctx.dev_id(address), heater_pwm // 10, fan_pwm // 10))
+    dev_id = ctx.dev_id(address)
+    thermal = await ctx.execute(ThermalDemandRequest(dev_id, heater_pwm // 10, fan_pwm // 10))
 
     if thermal.isError():
         click.echo(f"Error: {thermal}")
@@ -595,7 +598,8 @@ async def thermal_demand(ctx: CLIContext, heater_pwm: int, fan_pwm: int, address
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def thermal_status(ctx: CLIContext, address: None | int) -> None:
-    thermal = await ctx.execute(ThermalStatusRequest(ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    thermal = await ctx.execute(ThermalStatusRequest(dev_id))
 
     if thermal.isError():
         click.echo(f"Error: {thermal}")
@@ -607,16 +611,35 @@ async def thermal_status(ctx: CLIContext, address: None | int) -> None:
 
 
 @cli.command()
+@click.argument("proportional-gain", type=float)
+@click.argument("integral-gain", type=float)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def reheater_gains(
+    ctx: CLIContext, proportional_gain: float, integral_gain: float, address: None | int
+) -> None:
+    dev_id = ctx.dev_id(address)
+    reheater = await ctx.execute(ThermalStatusRequest(dev_id, proportional_gain, integral_gain))
+
+    if reheater.isError():
+        click.echo(f"Error: {reheater}")
+        return
+
+    click.echo(f"Set ILC {dev_id} to: {integral_gain=:.6f} {proportional_gain=:.6f}.")
+
+
+@cli.command()
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def reset(ctx: CLIContext, address: None | int) -> None:
-    reset_response = await ctx.execute(Reset(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    reset_response = await ctx.execute(Reset(dev_id))
 
     if reset_response.isError():
         click.echo(f"Error: {reset_response}")
         return
 
-    click.echo(f"ILC {address} reseted.")
+    click.echo(f"ILC {dev_id} reseted.")
 
 
 async def main() -> None:

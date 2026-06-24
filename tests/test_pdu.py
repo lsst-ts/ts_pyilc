@@ -50,6 +50,8 @@ from lsst.ts.pyilc.pdu import (
     SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
+    SetReheaterGainsRequest,
+    SetReheaterGainsResponse,
     ThermalDemandRequest,
     ThermalDemandResponse,
     ThermalStatusRequest,
@@ -88,6 +90,7 @@ class PduTestCase(unittest.TestCase):
         (0x52, b"\x52\x01\x02\x03\x04\x05\x06\xff\xfe"),
         (0x58, b"\x58\x4f\xc2)\xb8R\x42B)\xae\x14"),
         (0x58, b"\x59\x45B)\xae\x14\x45\xc2)\xb8R"),
+        (0x5C, b"\x5c"),
         (0x6B, b"\x6b"),
     ]
 
@@ -113,6 +116,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ReadDACValuesRequest, ReadDACValuesResponse)
         server.add_pdu(ThermalDemandRequest, ThermalDemandResponse)
         server.add_pdu(ThermalStatusRequest, ThermalStatusResponse)
+        server.add_pdu(SetReheaterGainsRequest, SetReheaterGainsResponse)
         server.add_pdu(Reset, Reset)
 
         pdu = self.server.decode(frame)
@@ -204,6 +208,8 @@ class PduTestCase(unittest.TestCase):
             self.assertAlmostEqual(pdu.differential_temperature, 42.42, places=4)
             assert pdu.fan_rpm == 69
             self.assertAlmostEqual(pdu.absolute_temperature, -42.43, places=4)
+        elif pdu.function_code == ILCFunction.SET_REHEATER_GAINS:
+            pass
         elif pdu.function_code == ILCFunction.RESET_SERVER:
             pass
         else:

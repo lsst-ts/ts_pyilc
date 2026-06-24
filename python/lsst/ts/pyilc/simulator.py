@@ -57,6 +57,8 @@ from .pdu import (
     SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
+    SetReheaterGainsRequest,
+    SetReheaterGainsResponse,
     ThermalDemandRequest,
     ThermalDemandResponse,
     ThermalStatusRequest,
@@ -369,6 +371,11 @@ class SimulatedThermalStatusRequest(ThermalStatusRequest):
         return pdu
 
 
+class SimulatedSetReheaterGainsRequest(SetReheaterGainsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        return SetReheaterGainsResponse(dev_id=device_id)
+
+
 class SimulatedReset(Reset):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         return self
@@ -402,6 +409,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedReadDACValuesRequest,
                 SimulatedThermalDemandRequest,
                 SimulatedThermalStatusRequest,
+                SimulatedSetReheaterGainsRequest,
                 SimulatedReset,
             ],
         )

@@ -46,6 +46,8 @@ from .pdu import (
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    ReadDACValuesRequest,
+    ReadDACValuesResponse,
     Reset,
     ServerIDRequest,
     ServerIDResponse,
@@ -311,6 +313,18 @@ class SimulatedSetADCChannelOffsetAndSensitivityRequest(SetADCChannelOffsetAndSe
         return SetADCChannelOffsetAndSensitivityResponse(dev_id=device_id)
 
 
+class SimulatedReadDACValuesRequest(ReadDACValuesRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadDACValuesResponse(dev_id=device_id)
+
+        pdu.dac1_axial_push = 41
+        pdu.dac2_axial_pull = 42
+        pdu.dac3_lateral_push = 43
+        pdu.dac4_lateral_pull = 44
+
+        return pdu
+
+
 class SimulatedReset(Reset):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         return self
@@ -341,6 +355,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedForceActuatorForceAndStatusRequest,
                 SimulatedSetADCScanRate,
                 SimulatedSetADCChannelOffsetAndSensitivityRequest,
+                SimulatedReadDACValuesRequest,
                 SimulatedReset,
             ],
         )

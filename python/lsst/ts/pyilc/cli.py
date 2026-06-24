@@ -46,6 +46,8 @@ from .pdu import (
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    ReadDACValuesRequest,
+    ReadDACValuesResponse,
     Reset,
     ServerIDRequest,
     ServerIDResponse,
@@ -111,6 +113,7 @@ class CLIContext:
         client.register(ForceActuatorForceAndStatusDAResponse)
         client.register(SetADCScanRate)
         client.register(SetADCChannelOffsetAndSensitivityResponse)
+        client.register(ReadDACValuesResponse)
         client.register(Reset)
 
         self.client = client
@@ -547,6 +550,22 @@ async def set_adc_channel_offset_and_sensitivity(
         return
 
     click.echo(f"Set ILC {address} ADC channel {sensor_channel}: {offset=:.3f} {sensitivity=:.3f}.")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
+    dac_values = await ctx.execute(ReadDACValuesRequest(dev_id=ctx.dev_id(address)))
+
+    if dac_values.isError():
+        click.echo("Error: {dac_values}")
+        return
+
+    click.echo(f"DAC 1 (axial push): {dac_values.dac1_axial_push}")
+    click.echo(f"DAC 2 (axial pull): {dac_values.dac2_axial_pull}")
+    click.echo(f"DAC 3 (lateral push): {dac_values.dac3_lateral_push}")
+    click.echo(f"DAC 4 (lateral pull): {dac_values.dac4_lateral_pull}")
 
 
 @cli.command()

@@ -48,6 +48,7 @@ class ILCFunction(IntEnum):
     SET_TEMP_ILC_ADDR = 0x48  # 72
     SET_ADC_SCANRATE = 0x50  # 80
     SET_ADC_CHANNEL_OFFSET = 0x51  # 81
+    READ_DAC_VALUES = 0x52  # 82
     RESET_SERVER = 0x6B  # 107
     READ_CALIBRATION = 0x6E  # 110
 

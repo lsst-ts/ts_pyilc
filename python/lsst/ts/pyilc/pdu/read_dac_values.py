@@ -19,8 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ServerStatusRequest", "ServerStatusResponse"]
+__all__ = ["ReadDACValuesRequest", "ReadDACValuesResponse"]
 
+import math as m
 import struct
 
 from pymodbus.pdu import ModbusPDU
@@ -28,26 +29,30 @@ from pymodbus.pdu import ModbusPDU
 from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
 
 
-class ServerStatusRequest(ILCRequest):
-    """Request server status."""
+class ReadDACValuesRequest(ILCRequest):
+    """read DAC values."""
 
-    function_code = ILCFunction.REPORT_SERVER_STATUS
+    function_code = ILCFunction.READ_DAC_VALUES
 
 
-class ServerStatusResponse(ModbusPDU):
-    """Report server status response."""
-
-    function_code = ILCFunction.REPORT_SERVER_STATUS
-    rtu_frame_size = 5
+class ReadDACValuesResponse(ModbusPDU):
+    function_code = ILCFunction.READ_DAC_VALUES
+    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
-        super().__init__(dev_id=dev_id)
-        self.mode: int = 0
-        self.status: int = 0
-        self.faults: int = 0
+        super().__init__(dev_id)
+
+        self.dac1_axial_push = m.nan
+        self.dac2_axial_pull = m.nan
+        self.dac3_lateral_push = m.nan
+        self.dac4_lateral_pull = m.nan
 
     def encode(self) -> bytes:
-        return struct.pack(">BHH", self.mode, self.status, self.faults)
+        return struct.pack(
+            ">4H", self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull
+        )
 
     def decode(self, data: bytes) -> None:
-        (self.mode, self.status, self.faults) = struct.unpack(">BHH", data)
+        (self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull) = (
+            struct.unpack(">4H", data)
+        )

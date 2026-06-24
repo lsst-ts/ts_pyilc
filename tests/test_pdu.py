@@ -39,6 +39,8 @@ from lsst.ts.pyilc.pdu import (
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
+    ReadDACValuesRequest,
+    ReadDACValuesResponse,
     Reset,
     ServerIDRequest,
     ServerIDResponse,
@@ -68,51 +70,19 @@ class PduTestCase(unittest.TestCase):
             0x11,
             b"\x11\x2b\x00\x00\x17\x85\x53\x34\x02\x02\x02\x02\x09\x00\x50\x6e\x65\x75\x6d\x61\x74\x69\x63\x20\x49\x4c\x43\x20\x28\x63\x29\x32\x30\x31\x37\x20\x41\x55\x52\x41\x2d\x4c\x53\x53\x54",
         ),
-        (
-            0x12,
-            b"\x12\x01\x02\x03\x04\x05",
-        ),
-        (
-            0x41,
-            b"\x41\x00\x01",
-        ),
-        (
-            0x42,
-            b"\x42\xff\xff\xff\xf8B)\xae\x14",
-        ),
-        (
-            0x43,
-            b"\x43\x4d\x00\x00\x00\x2a\xc2-\xae\x14",
-        ),
-        (
-            0x48,
-            b"\x48\x17",
-        ),
-        (
-            0x49,
-            b"\x49",
-        ),
-        (
-            0x4A,
-            b"\x4aB)\xae\x14\xc2)\xb8R",
-        ),
-        (
-            0x4B,
-            b"\x4b\x43C\x0e$Z\xc3\x0e$Z",
-        ),
-        (
-            0x4C,
-            b"\x4c\x43\xc3\x0e$ZC\x0e$Z",
-        ),
-        (
-            0x50,
-            b"\x50\x02",
-        ),
+        (0x12, b"\x12\x01\x02\x03\x04\x05"),
+        (0x41, b"\x41\x00\x01"),
+        (0x42, b"\x42\xff\xff\xff\xf8B)\xae\x14"),
+        (0x43, b"\x43\x4d\x00\x00\x00\x2a\xc2-\xae\x14"),
+        (0x48, b"\x48\x17"),
+        (0x49, b"\x49"),
+        (0x4A, b"\x4aB)\xae\x14\xc2)\xb8R"),
+        (0x4B, b"\x4b\x43C\x0e$Z\xc3\x0e$Z"),
+        (0x4C, b"\x4c\x43\xc3\x0e$ZC\x0e$Z"),
+        (0x50, b"\x50\x02"),
         (0x51, b"\x51"),
-        (
-            0x6B,
-            b"\x6b",
-        ),
+        (0x52, b"\x52\x01\x02\x03\x04\x05\x06\xff\xfe"),
+        (0x6B, b"\x6b"),
     ]
 
     @parameterized.expand(responses)
@@ -134,6 +104,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ForceActuatorForceAndStatusRequest, ForceActuatorForceAndStatusDAResponse)
         server.add_pdu(SetADCScanRate, SetADCScanRate)
         server.add_pdu(SetADCChannelOffsetAndSensitivityRequest, SetADCChannelOffsetAndSensitivityResponse)
+        server.add_pdu(ReadDACValuesRequest, ReadDACValuesResponse)
         server.add_pdu(Reset, Reset)
 
         pdu = self.server.decode(frame)
@@ -202,6 +173,11 @@ class PduTestCase(unittest.TestCase):
             assert pdu.scan_rate == ADCScanRate.RATE_100
         elif pdu.function_code == ILCFunction.SET_ADC_CHANNEL_OFFSET:
             pass
+        elif pdu.function_code == ILCFunction.READ_DAC_VALUES:
+            assert pdu.dac1_axial_push == 0x0102
+            assert pdu.dac2_axial_pull == 0x0304
+            assert pdu.dac3_lateral_push == 0x0506
+            assert pdu.dac4_lateral_pull == 0xFFFE
         elif pdu.function_code == ILCFunction.RESET_SERVER:
             pass
         else:

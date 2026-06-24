@@ -24,6 +24,7 @@ import asyncio
 import logging
 import math as m
 
+import numpy as np
 from pymodbus.datastore import ModbusServerContext
 from pymodbus.pdu import ExceptionResponse, ModbusPDU
 from pymodbus.server import StartAsyncTcpServer
@@ -46,6 +47,8 @@ from .pdu import (
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    ReadCalibrationDataRequest,
+    ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
     ReadReheaterGainsRequest,
@@ -400,6 +403,22 @@ class SimulatedReset(Reset):
         return self
 
 
+class SimulatedReadCalibrationDataRequest(ReadCalibrationDataRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadCalibrationDataResponse(device_id)
+
+        pdu.main_adc_calibration = np.arange(42.42, 42.82, 0.1)
+        print(pdu.main_adc_calibration)
+        pdu.main_sensor_offset = np.arange(4.11, 4.31, 0.05)
+        pdu.main_sensor_sensitivity = np.arange(4.2, 8.2, 1)
+
+        pdu.backup_adc_calibration = np.arange(-42.42, -42.82, -0.1)
+        pdu.backup_sensor_offset = np.arange(-4.11, -4.31, -0.05)
+        pdu.backup_sensor_sensitivity = np.arange(-4.2, -8.2, -1)
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -431,6 +450,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedSetReheaterGainsRequest,
                 SimulatedReadReheaterGainsRequest,
                 SimulatedReset,
+                SimulatedReadCalibrationDataRequest,
             ],
         )
     )

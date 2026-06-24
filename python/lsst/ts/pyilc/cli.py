@@ -46,6 +46,8 @@ from .pdu import (
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    ReadCalibrationDataRequest,
+    ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
     ReadReheaterGainsRequest,
@@ -127,6 +129,7 @@ class CLIContext:
         client.register(SetReheaterGainsResponse)
         client.register(ReadReheaterGainsResponse)
         client.register(Reset)
+        client.register(ReadCalibrationDataResponse)
 
         self.client = client
         self.name = str(client)
@@ -661,6 +664,30 @@ async def reset(ctx: CLIContext, address: None | int) -> None:
         return
 
     click.echo(f"ILC {dev_id} reseted.")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_calibration_data(ctx: CLIContext, address: None | int) -> None:
+    dev_id = ctx.dev_id(address)
+    calib_data = await ctx.execute(ReadCalibrationDataRequest(dev_id))
+
+    if calib_data.isError():
+        click.echo(f"Error: {calib_data}")
+        return
+
+    click.echo("                        1       2       3       4")
+
+    def __format_array(array: list[float]) -> str:
+        return " ".join([f"{a:7.3f}" for a in array])
+
+    click.echo(f"Main ADC            {__format_array(calib_data.main_adc_calibration)}")
+    click.echo(f"Main Offset         {__format_array(calib_data.main_sensor_offset)}")
+    click.echo(f"Main Sensitivity    {__format_array(calib_data.main_sensor_sensitivity)}")
+    click.echo(f"Backup ADC          {__format_array(calib_data.backup_adc_calibration)}")
+    click.echo(f"Backup Offset       {__format_array(calib_data.backup_sensor_offset)}")
+    click.echo(f"Backup Sensitivity  {__format_array(calib_data.backup_sensor_sensitivity)}")
 
 
 async def main() -> None:

@@ -21,6 +21,7 @@
 
 import unittest
 
+import numpy as np
 from parameterized import parameterized
 from pymodbus.pdu import DecodePDU
 
@@ -39,6 +40,8 @@ from lsst.ts.pyilc.pdu import (
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
+    ReadCalibrationDataRequest,
+    ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
     ReadReheaterGainsRequest,
@@ -95,6 +98,10 @@ class PduTestCase(unittest.TestCase):
         (0x5C, b"\x5c"),
         (0x5D, b"\x5d\xc2)\xb8RB)\xae\x14"),
         (0x6B, b"\x6b"),
+        (
+            0x6E,
+            b"\x6eB(p\xa4B(\xd7\nB)=qB)\xa3\xd7B*\n=B*p\xa4B*\xd7\nB+=qB+\xa3\xd7B,\n=B,p\xa4B,\xd7\nB-=qB-\xa3\xd7B.\n=B.p\xa4B.\xd7\nB/=qB/\xa3\xd7B0\n=B0p\xa4B0\xd7\nB1=qB1\xa3\xd7",
+        ),
     ]
 
     @parameterized.expand(responses)
@@ -121,6 +128,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ThermalStatusRequest, ThermalStatusResponse)
         server.add_pdu(SetReheaterGainsRequest, SetReheaterGainsResponse)
         server.add_pdu(ReadReheaterGainsRequest, ReadReheaterGainsResponse)
+        server.add_pdu(ReadCalibrationDataRequest, ReadCalibrationDataResponse)
         server.add_pdu(Reset, Reset)
 
         pdu = self.server.decode(frame)
@@ -217,6 +225,20 @@ class PduTestCase(unittest.TestCase):
         elif pdu.function_code == ILCFunction.READ_REHEATER_GAINS:
             self.assertAlmostEqual(pdu.p, -42.43, places=4)
             self.assertAlmostEqual(pdu.i, 42.42, places=4)
+        elif pdu.function_code == ILCFunction.READ_CALIBRATION_DATA:
+
+            def __assert_array(actual: list[float], start: float) -> None:
+                for a, b in zip(actual, np.arange(start, start + 0.1 * len(actual), 0.1)):
+                    self.assertAlmostEqual(a, b, places=4)
+
+            __assert_array(pdu.main_adc_calibration, 42.11)
+            __assert_array(pdu.main_sensor_offset, 42.51)
+            __assert_array(pdu.main_sensor_sensitivity, 42.91)
+
+            __assert_array(pdu.backup_adc_calibration, 43.31)
+            __assert_array(pdu.backup_sensor_offset, 43.71)
+            __assert_array(pdu.backup_sensor_sensitivity, 44.11)
+
         elif pdu.function_code == ILCFunction.RESET_SERVER:
             pass
         else:

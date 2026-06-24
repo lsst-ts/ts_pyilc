@@ -48,6 +48,8 @@ from .pdu import (
     ILCMode,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
+    ReadReheaterGainsRequest,
+    ReadReheaterGainsResponse,
     Reset,
     ServerIDRequest,
     ServerIDResponse,
@@ -57,6 +59,8 @@ from .pdu import (
     SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
+    SetReheaterGainsRequest,
+    SetReheaterGainsResponse,
     ThermalDemandRequest,
     ThermalDemandResponse,
     ThermalStatusRequest,
@@ -120,6 +124,8 @@ class CLIContext:
         client.register(ReadDACValuesResponse)
         client.register(ThermalDemandResponse)
         client.register(ThermalStatusResponse)
+        client.register(SetReheaterGainsResponse)
+        client.register(ReadReheaterGainsResponse)
         client.register(Reset)
 
         self.client = client
@@ -615,17 +621,32 @@ async def thermal_status(ctx: CLIContext, address: None | int) -> None:
 @click.argument("integral-gain", type=float)
 @click.argument("address", type=int, default=None)
 @pass_ctx
-async def reheater_gains(
+async def set_reheater_gains(
     ctx: CLIContext, proportional_gain: float, integral_gain: float, address: None | int
 ) -> None:
     dev_id = ctx.dev_id(address)
-    reheater = await ctx.execute(ThermalStatusRequest(dev_id, proportional_gain, integral_gain))
+    reheater = await ctx.execute(SetReheaterGainsRequest(dev_id, proportional_gain, integral_gain))
 
     if reheater.isError():
         click.echo(f"Error: {reheater}")
         return
 
     click.echo(f"Set ILC {dev_id} to: {integral_gain=:.6f} {proportional_gain=:.6f}.")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_reheater_gains(ctx: CLIContext, address: None | int) -> None:
+    dev_id = ctx.dev_id(address)
+    reheater = await ctx.execute(ReadReheaterGainsRequest(dev_id))
+
+    if reheater.isError():
+        click.echo(f"Error: {reheater}")
+        return
+
+    click.echo(f"Reheater Gains P (proportional): {reheater.p:.6f}")
+    click.echo(f"Reheater Gains I (intergral): {reheater.i:.6f}")
 
 
 @cli.command()

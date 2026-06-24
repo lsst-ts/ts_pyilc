@@ -79,6 +79,7 @@ class ILCFunction(IntEnum):
     TS_DEMAND = 0x58  # 88
     TS_STATUS = 0x59  # 89
     SET_REHEATER_GAINS = 0x5C
+    READ_REHEATER_GAINS = 0x5D
 
     # M2 - M2 Support System ILC
     READ_MONITOR_SENSORS = 0x54  # 84

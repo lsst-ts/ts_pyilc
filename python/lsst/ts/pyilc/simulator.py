@@ -48,6 +48,8 @@ from .pdu import (
     ILCMode,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
+    ReadReheaterGainsRequest,
+    ReadReheaterGainsResponse,
     Reset,
     ServerIDRequest,
     ServerIDResponse,
@@ -371,9 +373,26 @@ class SimulatedThermalStatusRequest(ThermalStatusRequest):
         return pdu
 
 
+reheater_gains_p: float = 0
+reheater_gains_i: float = 0
+
+
 class SimulatedSetReheaterGainsRequest(SetReheaterGainsRequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        global reheater_gains_p
+        global reheater_gains_i
+
+        reheater_gains_p = self.p
+        reheater_gains_i = self.i
+
         return SetReheaterGainsResponse(dev_id=device_id)
+
+
+class SimulatedReadReheaterGainsRequest(ReadReheaterGainsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        global reheater_gains_p
+        global reheater_gains_i
+        return ReadReheaterGainsResponse(device_id, reheater_gains_p, reheater_gains_i)
 
 
 class SimulatedReset(Reset):
@@ -410,6 +429,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedThermalDemandRequest,
                 SimulatedThermalStatusRequest,
                 SimulatedSetReheaterGainsRequest,
+                SimulatedReadReheaterGainsRequest,
                 SimulatedReset,
             ],
         )

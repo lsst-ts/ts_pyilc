@@ -51,6 +51,8 @@ from .pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCChannelOffsetAndSensitivityRequest,
+    SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
 )
@@ -108,6 +110,7 @@ class CLIContext:
         client.register(ForceActuatorForceDemandDAResponse)
         client.register(ForceActuatorForceAndStatusDAResponse)
         client.register(SetADCScanRate)
+        client.register(SetADCChannelOffsetAndSensitivityResponse)
         client.register(Reset)
 
         self.client = client
@@ -522,6 +525,28 @@ async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int
         return
 
     click.echo(f"Scan Rate: {rate.scan_rate.name}")
+
+
+@cli.command()
+@click.argument("sensor_channel", type=int)
+@click.argument("offset", type=float)
+@click.argument("sensitivity", type=float)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def set_adc_channel_offset_and_sensitivity(
+    ctx: CLIContext, sensor_channel: int, offset: float, sensitivity: float, address: None | int
+) -> None:
+    channel = await ctx.execute(
+        SetADCChannelOffsetAndSensitivityRequest(
+            dev_id=ctx.dev_id(address), sensor_channel=sensor_channel, offset=offset, sensitivity=sensitivity
+        )
+    )
+
+    if channel.isError():
+        click.echo(f"Error: {channel}")
+        return
+
+    click.echo(f"Set ILC {address} ADC channel {sensor_channel}: {offset=:.3f} {sensitivity=:.3f}.")
 
 
 @cli.command()

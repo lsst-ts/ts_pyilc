@@ -32,3 +32,4 @@ from .force_actuator_force_demand import ForceActuatorForceDemandSARequest, Forc
 from .force_actuator_force_and_status import ForceActuatorForceAndStatusRequest, ForceActuatorForceAndStatusSAResponse, ForceActuatorForceAndStatusDAResponse
 from .set_adc_scan_rate import ADCScanRate, SetADCScanRate
 from .reset import Reset
+from .set_adc_channel_offset_and_sensitivity import SetADCChannelOffsetAndSensitivityRequest, SetADCChannelOffsetAndSensitivityResponse

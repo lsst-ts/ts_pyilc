@@ -22,6 +22,7 @@
 import argparse
 import asyncio
 import logging
+import math as m
 
 from pymodbus.datastore import ModbusServerContext
 from pymodbus.pdu import ExceptionResponse, ModbusPDU
@@ -50,6 +51,8 @@ from .pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCChannelOffsetAndSensitivityRequest,
+    SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
 )
@@ -294,6 +297,20 @@ class SimulatedSetADCScanRate(SetADCScanRate):
         return self
 
 
+cell_offset: list[float] = [m.nan] * 4
+cell_sensitivity: list[float] = [m.nan] * 4
+
+
+class SimulatedSetADCChannelOffsetAndSensitivityRequest(SetADCChannelOffsetAndSensitivityRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        if 1 <= self.sensor_channel <= 4:
+            cell_offset[self.sensor_channel] = self.offset
+            cell_sensitivity[self.sensor_channel] = self.sensitivity
+        else:
+            return ExceptionResponse(self.function_code, ILCException.ILLEGAL_FUNCTION, device_id)
+        return SetADCChannelOffsetAndSensitivityResponse(dev_id=device_id)
+
+
 class SimulatedReset(Reset):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         return self
@@ -323,6 +340,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedForceActuatorForceDemandDARequest,
                 SimulatedForceActuatorForceAndStatusRequest,
                 SimulatedSetADCScanRate,
+                SimulatedSetADCChannelOffsetAndSensitivityRequest,
                 SimulatedReset,
             ],
         )

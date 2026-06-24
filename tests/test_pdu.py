@@ -44,6 +44,8 @@ from lsst.ts.pyilc.pdu import (
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCChannelOffsetAndSensitivityRequest,
+    SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
 )
@@ -106,6 +108,7 @@ class PduTestCase(unittest.TestCase):
             0x50,
             b"\x50\x02",
         ),
+        (0x51, b"\x51"),
         (
             0x6B,
             b"\x6b",
@@ -130,6 +133,7 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ForceActuatorForceDemandDARequest, ForceActuatorForceDemandDAResponse)
         server.add_pdu(ForceActuatorForceAndStatusRequest, ForceActuatorForceAndStatusDAResponse)
         server.add_pdu(SetADCScanRate, SetADCScanRate)
+        server.add_pdu(SetADCChannelOffsetAndSensitivityRequest, SetADCChannelOffsetAndSensitivityResponse)
         server.add_pdu(Reset, Reset)
 
         pdu = self.server.decode(frame)
@@ -196,6 +200,8 @@ class PduTestCase(unittest.TestCase):
             self.assertAlmostEqual(pdu.lateral_cell_force, 142.142, places=4)
         elif pdu.function_code == ILCFunction.SET_ADC_SCANRATE:
             assert pdu.scan_rate == ADCScanRate.RATE_100
+        elif pdu.function_code == ILCFunction.SET_ADC_CHANNEL_OFFSET:
+            pass
         elif pdu.function_code == ILCFunction.RESET_SERVER:
             pass
         else:

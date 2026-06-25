@@ -59,6 +59,8 @@ from .pdu import (
     ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
     ReadMezzanineStatusResponse,
+    ReadMonitorSensorsRequest,
+    ReadMonitorTemperatureSensorsResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -470,6 +472,15 @@ class SimulatedReadMezzanineStatusRequest(ReadMezzanineStatusRequest):
         return pdu
 
 
+class SimulatedReadMonitorSensorsRequest(ReadMonitorSensorsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMonitorTemperatureSensorsResponse(device_id)
+
+        pdu.temperature = np.arange(4.2, 21.0, 4.2)
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -506,6 +517,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedReadMezzanineIDRequest,
                 SimulatedReadMezzanineStatusRequest,
                 SimulatedReadMezzanineLVDTRequest,
+                SimulatedReadMonitorSensorsRequest,
             ],
         )
     )

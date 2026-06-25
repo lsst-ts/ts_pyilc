@@ -58,6 +58,8 @@ from .pdu import (
     ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
     ReadMezzanineStatusResponse,
+    ReadMonitorSensorsRequest,
+    ReadMonitorTemperatureSensorsResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -142,6 +144,7 @@ class CLIContext:
         client.register(ReadMezzanineIDResponse)
         client.register(ReadMezzanineStatusResponse)
         client.register(ReadMezzanineLVDTResponse)
+        client.register(ReadMonitorTemperatureSensorsResponse)
 
         self.client = client
         self.name = str(client)
@@ -781,6 +784,22 @@ async def read_mezzanine_lvdt(ctx: CLIContext, address: None | int) -> None:
 
     click.echo(f"LVDT 1: {lvdt.lvdt_1:.2f} psi")
     click.echo(f"LVDT 2: {lvdt.lvdt_2:.2f} psi")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_monitor_sensors(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board LVDT."""
+    dev_id = ctx.dev_id(address)
+    monitor = await ctx.execute(ReadMonitorSensorsRequest(dev_id))
+
+    if monitor.isError():
+        click.echo(f"Error: {monitor}")
+        return
+
+    for i in range(4):
+        click.echo(f"Temperature {i}: {monitor.temperature[i]:.2f} °C")
 
 
 async def main() -> None:

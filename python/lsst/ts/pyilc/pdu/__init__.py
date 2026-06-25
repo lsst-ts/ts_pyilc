@@ -43,3 +43,5 @@ from .read_mezzanine_pressure import ReadMezzaninePressureRequest, ReadMezzanine
 from .read_mezzanine_id import ReadMezzanineIDRequest, ReadMezzanineIDResponse
 from .read_mezzanine_status import ReadMezzanineStatusRequest, ReadMezzanineStatusResponse
 from .read_mezzanine_lvdt import ReadMezzanineLVDTRequest, ReadMezzanineLVDTResponse
+
+from .read_monitor_sensors import ReadMonitorSensorsRequest, ReadMonitorTemperatureSensorsResponse

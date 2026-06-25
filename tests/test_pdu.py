@@ -52,6 +52,8 @@ from lsst.ts.pyilc.pdu import (
     ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
     ReadMezzanineStatusResponse,
+    ReadMonitorSensorsRequest,
+    ReadMonitorTemperatureSensorsResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -114,6 +116,7 @@ class PduTestCase(unittest.TestCase):
         (0x78, b"\x78\x01\x02\x03\x04\x05\x42\x35\x04\x02"),
         (0x79, b"\x79\x01\x02"),
         (0x7A, b"\x7aB(p\xa4B(\xd7\n"),
+        (0x54, b"\x54B(p\xa4B(\xd7\nB)=qB)\xa3\xd7"),
     ]
 
     @parameterized.expand(responses)
@@ -147,9 +150,15 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ReadMezzanineStatusRequest, ReadMezzanineStatusResponse)
         server.add_pdu(ReadMezzanineLVDTRequest, ReadMezzanineLVDTResponse)
 
+        server.add_pdu(ReadMonitorSensorsRequest, ReadMonitorTemperatureSensorsResponse)
+
         pdu = self.server.decode(frame)
 
         assert pdu.encode() == frame[1:]
+
+        def __assert_array(actual: list[float], start: float) -> None:
+            for a, b in zip(actual, np.arange(start, start + 0.1 * len(actual), 0.1)):
+                self.assertAlmostEqual(a, b, places=4)
 
         if pdu.function_code == ILCFunction.REPORT_SERVER_ID:
             frame_size = pdu.calculateRtuFrameSize(b"\x01" + frame)
@@ -244,11 +253,6 @@ class PduTestCase(unittest.TestCase):
         elif pdu.function_code == ILCFunction.RESET_SERVER:
             pass
         elif pdu.function_code == ILCFunction.READ_CALIBRATION_DATA:
-
-            def __assert_array(actual: list[float], start: float) -> None:
-                for a, b in zip(actual, np.arange(start, start + 0.1 * len(actual), 0.1)):
-                    self.assertAlmostEqual(a, b, places=4)
-
             __assert_array(pdu.main_adc_calibration, 42.11)
             __assert_array(pdu.main_sensor_offset, 42.51)
             __assert_array(pdu.main_sensor_sensitivity, 42.91)
@@ -271,6 +275,9 @@ class PduTestCase(unittest.TestCase):
         elif pdu.function_code == ILCFunction.HM_READ_MEZZANINE_LVDT:
             self.assertAlmostEqual(pdu.lvdt_1, 42.11, places=4)
             self.assertAlmostEqual(pdu.lvdt_2, 42.21, places=4)
+
+        elif pdu.function_code == ILCFunction.READ_MONITOR_SENSORS:
+            __assert_array(pdu.temperature, 42.11)
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

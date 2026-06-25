@@ -38,7 +38,7 @@ class SetReheaterGainsRequest(ModbusPDU):
         ILC address.
     p : `float`
         Re-heater proportional gain.
-    i : `float`a
+    i : `float`
         Re-heater integral gain.
     """
 

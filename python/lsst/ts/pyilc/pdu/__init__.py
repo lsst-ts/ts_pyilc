@@ -40,3 +40,5 @@ from .set_reheater_gains import SetReheaterGainsRequest, SetReheaterGainsRespons
 from .read_reheater_gains import ReadReheaterGainsRequest, ReadReheaterGainsResponse
 from .read_calibration_data import ReadCalibrationDataRequest, ReadCalibrationDataResponse
 from .read_mezzanine_pressure import ReadMezzaninePressureRequest, ReadMezzaninePressureResponse
+from .read_mezzanine_id import ReadMezzanineIDRequest, ReadMezzanineIDResponse
+from .read_mezzanine_status import ReadMezzanineStatusRequest, ReadMezzanineStatusResponse

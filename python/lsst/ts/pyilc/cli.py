@@ -50,8 +50,12 @@ from .pdu import (
     ReadCalibrationDataResponse,
     ReadDACValuesRequest,
     ReadDACValuesResponse,
+    ReadMezzanineIDRequest,
+    ReadMezzanineIDResponse,
     ReadMezzaninePressureRequest,
     ReadMezzaninePressureResponse,
+    ReadMezzanineStatusRequest,
+    ReadMezzanineStatusResponse,
     ReadReheaterGainsRequest,
     ReadReheaterGainsResponse,
     Reset,
@@ -133,6 +137,8 @@ class CLIContext:
         client.register(Reset)
         client.register(ReadCalibrationDataResponse)
         client.register(ReadMezzaninePressureResponse)
+        client.register(ReadMezzanineIDResponse)
+        client.register(ReadMezzanineStatusResponse)
 
         self.client = client
         self.name = str(client)
@@ -723,6 +729,39 @@ async def read_mezzanine_pressure(ctx: CLIContext, address: None | int) -> None:
     click.echo(f"Sensor 2 (Axial pull) : {pressure.axial_pull:.2f} psi")
     click.echo(f"Sensor 3 (Lateral pull): {pressure.lateral_pull:.2f} psi")
     click.echo(f"Sensor 4 (Lateral push): {pressure.lateral_push:.2f} psi")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_id(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board ID."""
+    dev_id = ctx.dev_id(address)
+    board_id = await ctx.execute(ReadMezzanineIDRequest(dev_id))
+
+    if board_id.isError():
+        click.echo(f"Error: {board_id}")
+        return
+
+    click.echo(f"Unique ID: {board_id.unique_id} (0x{board_id.unique_id:012x})")
+    click.echo(f"Firmware type code: {board_id.firmware_type_code}")
+    click.echo(f"Firmware version: {board_id.firmware_major_version}.{board_id.firmware_minor_version}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_status(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board status."""
+    dev_id = ctx.dev_id(address)
+    board_status = await ctx.execute(ReadMezzanineStatusRequest(dev_id))
+
+    if board_status.isError():
+        click.echo(f"Error: {board_status}")
+        return
+
+    for label, value in board_status.status_bits().items():
+        click.echo(f"{label}: {value}")
 
 
 async def main() -> None:

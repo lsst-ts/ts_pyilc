@@ -434,6 +434,8 @@ async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> 
 @click.argument("broadcast", type=int, default=None)
 @pass_ctx
 async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broadcast: int) -> None:
+    """Freeze sensor values. A broadcast command,a correct broadcast address
+    has to be provided."""
     if broadcast not in (ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS):
         click.echo(
             "Freeze sensor broadcast must be either"
@@ -461,6 +463,7 @@ async def force_actuator_force_demand_sa(
     slew_flag: int,
     address: None | int,
 ) -> None:
+    """Sets demand for a single axis force actuator."""
     dev_id = ctx.dev_id(address)
     sa_demand = await ctx.execute(
         ForceActuatorForceDemandSARequest(dev_id, slew_flag, int(force_setpoint * 1000))
@@ -493,6 +496,7 @@ async def force_actuator_force_demand_da(
     slew_flag: int,
     address: None | int,
 ) -> None:
+    """Set demand for a dual axis force actuator."""
     dev_id = ctx.dev_id(address)
     da_demand = await ctx.execute(
         ForceActuatorForceDemandDARequest(
@@ -518,6 +522,7 @@ async def force_actuator_force_demand_da(
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | int) -> None:
+    """Report status of a dual axis force actuator."""
     dev_id = ctx.dev_id(address)
     da_force = await ctx.execute(ForceActuatorForceAndStatusRequest(dev_id))
 
@@ -540,6 +545,7 @@ async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | in
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int) -> None:
+    """Sets ADC scan rate for an actuator."""
     dev_id = ctx.dev_id(address)
     rate = await ctx.execute(SetADCScanRate(dev_id, ADCScanRate(scan_rate)))
 
@@ -559,6 +565,7 @@ async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int
 async def set_adc_channel_offset_and_sensitivity(
     ctx: CLIContext, sensor_channel: int, offset: float, sensitivity: float, address: None | int
 ) -> None:
+    """Set offset and sensitivity for ADC channel."""
     dev_id = ctx.dev_id(address)
     channel = await ctx.execute(
         SetADCChannelOffsetAndSensitivityRequest(dev_id, sensor_channel, offset, sensitivity)
@@ -575,6 +582,7 @@ async def set_adc_channel_offset_and_sensitivity(
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
+    """Read DAC values."""
     dev_id = ctx.dev_id(address)
     dac_values = await ctx.execute(ReadDACValuesRequest(dev_id))
 
@@ -594,6 +602,7 @@ async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def thermal_demand(ctx: CLIContext, heater_pwm: int, fan_pwm: int, address: None | int) -> None:
+    """Set thermal FCU demands."""
     dev_id = ctx.dev_id(address)
     thermal = await ctx.execute(ThermalDemandRequest(dev_id, heater_pwm // 10, fan_pwm // 10))
 
@@ -610,6 +619,7 @@ async def thermal_demand(ctx: CLIContext, heater_pwm: int, fan_pwm: int, address
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def thermal_status(ctx: CLIContext, address: None | int) -> None:
+    """Report thermal FCU status."""
     dev_id = ctx.dev_id(address)
     thermal = await ctx.execute(ThermalStatusRequest(dev_id))
 
@@ -630,6 +640,7 @@ async def thermal_status(ctx: CLIContext, address: None | int) -> None:
 async def set_reheater_gains(
     ctx: CLIContext, proportional_gain: float, integral_gain: float, address: None | int
 ) -> None:
+    """Set thermal FCU internal PI parameters."""
     dev_id = ctx.dev_id(address)
     reheater = await ctx.execute(SetReheaterGainsRequest(dev_id, proportional_gain, integral_gain))
 
@@ -644,6 +655,7 @@ async def set_reheater_gains(
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def read_reheater_gains(ctx: CLIContext, address: None | int) -> None:
+    """Read thermal FCU PI terms."""
     dev_id = ctx.dev_id(address)
     reheater = await ctx.execute(ReadReheaterGainsRequest(dev_id))
 
@@ -659,6 +671,7 @@ async def read_reheater_gains(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def reset(ctx: CLIContext, address: None | int) -> None:
+    """Reset ILC."""
     dev_id = ctx.dev_id(address)
     reset_response = await ctx.execute(Reset(dev_id))
 
@@ -673,6 +686,7 @@ async def reset(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def read_calibration_data(ctx: CLIContext, address: None | int) -> None:
+    """Read ILC calibration data."""
     dev_id = ctx.dev_id(address)
     calib_data = await ctx.execute(ReadCalibrationDataRequest(dev_id))
 
@@ -697,6 +711,7 @@ async def read_calibration_data(ctx: CLIContext, address: None | int) -> None:
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def read_mezzanine_pressure(ctx: CLIContext, address: None | int) -> None:
+    """Read pressure reported by mezzanine board."""
     dev_id = ctx.dev_id(address)
     pressure = await ctx.execute(ReadMezzaninePressureRequest(dev_id))
 
@@ -704,10 +719,10 @@ async def read_mezzanine_pressure(ctx: CLIContext, address: None | int) -> None:
         click.echo(f"Error: {pressure}")
         return
 
-    click.echo(f"Axial push: {pressure.axial_push:.2f} psi")
-    click.echo(f"Axial pull: {pressure.axial_pull:.2f} psi")
-    click.echo(f"Lateral pull: {pressure.lateral_pull:.2f} psi")
-    click.echo(f"Lateral push: {pressure.lateral_push:.2f} psi")
+    click.echo(f"Sensor 1 (Axial push): {pressure.axial_push:.2f} psi")
+    click.echo(f"Sensor 2 (Axial pull) : {pressure.axial_pull:.2f} psi")
+    click.echo(f"Sensor 3 (Lateral pull): {pressure.lateral_pull:.2f} psi")
+    click.echo(f"Sensor 4 (Lateral push): {pressure.lateral_push:.2f} psi")
 
 
 async def main() -> None:

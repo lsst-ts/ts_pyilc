@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["SetILCTemporaryAddress"]
+__all__ = ["FreezeSensorValuesBroadcast"]
 
 import struct
 
@@ -28,19 +28,29 @@ from pymodbus.pdu import ModbusPDU
 from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 
-class SetILCTemporaryAddress(ModbusPDU):
-    """Set ILC temporary address. Both Request and Response have the same
-    payload."""
+class FreezeSensorValuesBroadcast(ModbusPDU):
+    """Request freeze of sensor values.
 
-    function_code = ILCFunction.SET_TEMP_ILC_ADDR
+    Parameters
+    ----------
+    dev_id : `int`
+        Broadcast device address. Shall be either
+        ELECTROMECHANICAL_BROADCAST_ADDRESS or PNEUMATIC_BROADCAST_ADDRESS.
+    communication_counter : `int`
+        ILC communication counter. That will be returned in HP_FORCE_AND_STATUS
+        or FA_FORCE_AND_STATUS responses.
+    """
+
+    function_code = ILCFunction.FREEZE_SENSOR_VALUES
     rtu_frame_size = 1
 
-    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, communication_counter: int = 0):
         super().__init__(dev_id=dev_id)
-        self.address = new_address
+
+        self.communication_counter = communication_counter
 
     def encode(self) -> bytes:
-        return struct.pack(">B", self.address)
+        return struct.pack(">B", self.communication_counter)
 
     def decode(self, data: bytes) -> None:
-        self.address = int.from_bytes(data)
+        self.communication_counter = struct.unpack(">B", data)[0]

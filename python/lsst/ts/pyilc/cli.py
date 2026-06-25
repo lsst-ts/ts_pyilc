@@ -30,19 +30,53 @@ from pymodbus.exceptions import ModbusIOException
 from pymodbus.pdu import ModbusPDU
 
 from .pdu import (
+    ADCScanRate,
     ChangeILCMode,
-    ForceActuatorSetBoosterValveDCAGainRequest,
-    ForceActuatorSetBoosterValveDCAGainResponse,
+    ForceActuatorForceAndStatusDAResponse,
+    ForceActuatorForceAndStatusRequest,
+    ForceActuatorForceDemandDARequest,
+    ForceActuatorForceDemandDAResponse,
+    ForceActuatorForceDemandSARequest,
+    ForceActuatorReadBoosterValveDCAGainsRequest,
+    ForceActuatorSetBoosterValveDCAGainsRequest,
+    ForceActuatorSetBoosterValveDCAGainsResponse,
+    FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    ReadCalibrationDataRequest,
+    ReadCalibrationDataResponse,
+    ReadDACValuesRequest,
+    ReadDACValuesResponse,
+    ReadMezzanineIDRequest,
+    ReadMezzanineIDResponse,
+    ReadMezzanineLVDTRequest,
+    ReadMezzanineLVDTResponse,
+    ReadMezzaninePressureRequest,
+    ReadMezzaninePressureResponse,
+    ReadMezzanineStatusRequest,
+    ReadMezzanineStatusResponse,
+    ReadMonitorSensorsRequest,
+    ReadMonitorTemperatureSensorsResponse,
+    ReadReheaterGainsRequest,
+    ReadReheaterGainsResponse,
+    Reset,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCChannelOffsetAndSensitivityRequest,
+    SetADCChannelOffsetAndSensitivityResponse,
+    SetADCScanRate,
     SetILCTemporaryAddress,
+    SetReheaterGainsRequest,
+    SetReheaterGainsResponse,
+    ThermalDemandRequest,
+    ThermalDemandResponse,
+    ThermalStatusRequest,
+    ThermalStatusResponse,
 )
 from .pdu.firmware import (
     EraseApplication,
@@ -51,6 +85,7 @@ from .pdu.firmware import (
     WriteVerifyApplicationResponse,
 )
 from .pdu.firmware import flash as flash_ilc
+from .pdu.utils import ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS
 
 # Setup history file tracking via standard readline
 HISTORY_FILE = os.path.expanduser("~/.ilccli_history")
@@ -89,11 +124,27 @@ class CLIContext:
         client.register(HardpointStepMotorMoveResponse)
         client.register(HardpointForceAndStatusResponse)
         client.register(SetILCTemporaryAddress)
-        client.register(ForceActuatorSetBoosterValveDCAGainResponse)
+        client.register(ForceActuatorSetBoosterValveDCAGainsResponse)
         client.register(WriteApplicationStatesResponse)
         client.register(EraseApplication)
         client.register(WriteApplicationPageResponse)
         client.register(WriteVerifyApplicationResponse)
+        client.register(ForceActuatorForceDemandDAResponse)
+        client.register(ForceActuatorForceAndStatusDAResponse)
+        client.register(SetADCScanRate)
+        client.register(SetADCChannelOffsetAndSensitivityResponse)
+        client.register(ReadDACValuesResponse)
+        client.register(ThermalDemandResponse)
+        client.register(ThermalStatusResponse)
+        client.register(SetReheaterGainsResponse)
+        client.register(ReadReheaterGainsResponse)
+        client.register(Reset)
+        client.register(ReadCalibrationDataResponse)
+        client.register(ReadMezzaninePressureResponse)
+        client.register(ReadMezzanineIDResponse)
+        client.register(ReadMezzanineStatusResponse)
+        client.register(ReadMezzanineLVDTResponse)
+        client.register(ReadMonitorTemperatureSensorsResponse)
 
         self.client = client
         self.name = str(client)
@@ -167,7 +218,8 @@ def address(ctx: CLIContext, address: int) -> None:
 @pass_ctx
 async def report_server_id(ctx: CLIContext, address: None | int) -> None:
     """Read coils or registers from the server."""
-    server_id = await ctx.execute(ServerIDRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    server_id = await ctx.execute(ServerIDRequest(dev_id=dev_id))
     if server_id.isError():
         click.echo(f"Error: {server_id}")
         return
@@ -186,7 +238,8 @@ async def report_server_id(ctx: CLIContext, address: None | int) -> None:
 @pass_ctx
 async def report_server_status(ctx: CLIContext, address: None | int) -> None:
     """Report ILC status - mode, status and faults."""
-    server_status = await ctx.execute(ServerStatusRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    server_status = await ctx.execute(ServerStatusRequest(dev_id=dev_id))
     if server_status.isError():
         click.echo(f"Error: {server_status}")
         return
@@ -203,7 +256,8 @@ async def report_server_status(ctx: CLIContext, address: None | int) -> None:
 async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> None:
     """Command ILC to change its mode. Reads ILC mode if new mode is not
     provided."""
-    ilc_mode = await ctx.execute(ChangeILCMode(dev_id=ctx.dev_id(address), new_mode=mode))
+    dev_id = ctx.dev_id(address)
+    ilc_mode = await ctx.execute(ChangeILCMode(dev_id=dev_id, new_mode=mode))
 
     if ilc_mode.isError():
         click.echo(f"Error: {ilc_mode}")
@@ -283,9 +337,8 @@ async def bootloader(ctx: CLIContext, address: None | int) -> None:
 @pass_ctx
 async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None | int) -> None:
     """Command ILC to move hardpoint step motor."""
-    hp_status = await ctx.execute(
-        HardpointStepMotorMoveRequest(dev_id=ctx.dev_id(address), step_motor_command=steps)
-    )
+    dev_id = ctx.dev_id(address)
+    hp_status = await ctx.execute(HardpointStepMotorMoveRequest(dev_id=dev_id, step_motor_command=steps))
 
     if hp_status.isError():
         click.echo(f"Error: {hp_status}")
@@ -300,13 +353,17 @@ async def hardpoint_step_motor_move(ctx: CLIContext, steps: int, address: None |
 @pass_ctx
 async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> None:
     """Command ILC to move hardpoint step motor."""
-    hp_status = await ctx.execute(HardpointForceAndStatusRequest(dev_id=ctx.dev_id(address)))
+    dev_id = ctx.dev_id(address)
+    hp_status = await ctx.execute(HardpointForceAndStatusRequest(dev_id=dev_id))
 
     if hp_status.isError():
         click.echo(f"Error: {hp_status}")
         return
 
-    click.echo(f"Status: {hp_status.status}")
+    click.echo(f"ILC Fault: {hp_status.ilc_fault}")
+    click.echo(f"Limit switch CW: {hp_status.limit_switch_cw}")
+    click.echo(f"Limit switch CCW: {hp_status.limit_switch_ccw}")
+    click.echo(f"Communication countre: {hp_status.communication_counter}")
     click.echo(f"Encoder position: {hp_status.ssi_encoder_position}")
     click.echo(f"Force: {hp_status.load_cell_force:0.3f}")
 
@@ -317,9 +374,8 @@ async def hardpoint_force_and_status(ctx: CLIContext, address: None | int) -> No
 @pass_ctx
 async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: None | int) -> None:
     "Set ILC temporary address. Sets default address to the new address."
-    address_status = await ctx.execute(
-        SetILCTemporaryAddress(dev_id=ctx.dev_id(address), new_address=new_address)
-    )
+    dev_id = ctx.dev_id(address)
+    address_status = await ctx.execute(SetILCTemporaryAddress(dev_id=dev_id, new_address=new_address))
 
     if address_status.isError():
         click.echo(f"Error: {address_status}")
@@ -330,19 +386,18 @@ async def set_ilc_temporary_address(ctx: CLIContext, new_address: int, address: 
 
 
 @cli.command()
-@click.argument("axial_gain", type=float)
-@click.argument("lateral_gain", type=float)
+@click.argument("axial-gain", type=float)
+@click.argument("lateral-gain", type=float)
 @click.argument("address", type=int, default=None)
 @pass_ctx
-async def force_actuator_set_booster_valve_dca_gain(
+async def force_actuator_set_booster_valve_dca_gains(
     ctx: CLIContext, axial_gain: float, lateral_gain: float, address: None | int
 ) -> None:
     "Set booster valves DCA gains."
+    dev_id = ctx.dev_id(address)
     set_gains = await ctx.execute(
-        ForceActuatorSetBoosterValveDCAGainRequest(
-            dev_id=ctx.dev_id(address),
-            axial_gain=axial_gain,
-            lateral_gain=lateral_gain,
+        ForceActuatorSetBoosterValveDCAGainsRequest(
+            dev_id=dev_id, axial_gain=axial_gain, lateral_gain=lateral_gain
         )
     )
 
@@ -350,7 +405,25 @@ async def force_actuator_set_booster_valve_dca_gain(
         click.echo(f"Error: {set_gains}")
         return
 
-    click.echo(f"Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}")
+    click.echo(
+        f"ILC {dev_id} Booster Valve DCA Gains set to axial: {axial_gain:.4f} lateral: {lateral_gain:.4f}"
+    )
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_read_booster_valve_dca_gains(ctx: CLIContext, address: None | int) -> None:
+    "Set booster valves DCA gains."
+    dev_id = ctx.dev_id(address)
+    read_gains = await ctx.execute(ForceActuatorReadBoosterValveDCAGainsRequest(dev_id=dev_id))
+
+    if read_gains.isError():
+        click.echo(f"Error: {read_gains}")
+        return
+
+    click.echo(f"Axial gain: {read_gains.axial_gain:.4f}")
+    click.echo(f"Lateral gain: {read_gains.lateral_gain:.4f}")
 
 
 @cli.command()
@@ -359,12 +432,374 @@ async def force_actuator_set_booster_valve_dca_gain(
 @pass_ctx
 async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> None:
     """Flash new ILC firmware."""
+    dev_id = ctx.dev_id(address)
     if ctx.debug:
-        await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex))
+        await flash_ilc(ctx.client, dev_id, IntelHex(intel_hex))
         return
 
     with click.progressbar(length=1000, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
-        await flash_ilc(ctx.client, ctx.dev_id(address), IntelHex(intel_hex), bar.update)
+        await flash_ilc(ctx.client, dev_id, IntelHex(intel_hex), bar.update)
+
+
+@cli.command()
+@click.argument("communication-counter", type=int)
+@click.argument("broadcast", type=int, default=None)
+@pass_ctx
+async def freeze_sensor_values(ctx: CLIContext, communication_counter: int, broadcast: int) -> None:
+    """Freeze sensor values. A broadcast command,a correct broadcast address
+    has to be provided."""
+    if broadcast not in (ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS):
+        click.echo(
+            "Freeze sensor broadcast must be either"
+            f"{ELECTROMECHANICAL_BROADCAST_ADDRESS} or"
+            f"{PNEUMATIC_BROADCAST_ADDRESS} broadcast address."
+        )
+        return
+    freeze_sensor = await ctx.execute(FreezeSensorValuesBroadcast(address, communication_counter))
+
+    if freeze_sensor.isError():
+        click.echo(f"Error: {freeze_sensor}")
+        return
+
+    click.echo("Sensor values freezed.")
+
+
+@cli.command()
+@click.argument("force-setpoint", type=float)
+@click.argument("slew-flag", type=int, default=0)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_force_demand_sa(
+    ctx: CLIContext,
+    force_setpoint: float,
+    slew_flag: int,
+    address: None | int,
+) -> None:
+    """Sets demand for a single axis force actuator."""
+    dev_id = ctx.dev_id(address)
+    sa_demand = await ctx.execute(
+        ForceActuatorForceDemandSARequest(dev_id, slew_flag, int(force_setpoint * 1000))
+    )
+
+    if sa_demand.isError():
+        click.echo("Error: {sa_demand}")
+        return
+
+    click.echo(f"ILC Fault: {sa_demand.ilc_fault}")
+    click.echo(f"DCA Fault: {sa_demand.dca_fault}")
+    click.echo(f"Communication counter: {sa_demand.communication_counter}")
+
+    click.echo("")
+
+    click.echo(f"Axial measured force: {sa_demand.axial_cell_force:.4f}")
+    click.echo(f"Lateral measured force: {sa_demand.lateral_cell_force:.4f}")
+
+
+@cli.command()
+@click.argument("axial-force-setpoint", type=float)
+@click.argument("lateral-force-setpoint", type=float)
+@click.argument("slew-flag", type=int, default=0)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_force_demand_da(
+    ctx: CLIContext,
+    axial_force_setpoint: float,
+    lateral_force_setpoint: float,
+    slew_flag: int,
+    address: None | int,
+) -> None:
+    """Set demand for a dual axis force actuator."""
+    dev_id = ctx.dev_id(address)
+    da_demand = await ctx.execute(
+        ForceActuatorForceDemandDARequest(
+            dev_id, slew_flag, int(axial_force_setpoint * 1000), int(lateral_force_setpoint * 1000)
+        )
+    )
+
+    if da_demand.isError():
+        click.echo("Error: {da_demand}")
+        return
+
+    click.echo(f"ILC Fault: {da_demand.ilc_fault}")
+    click.echo(f"DCA Fault: {da_demand.dca_fault}")
+    click.echo(f"Communication counter: {da_demand.communication_counter}")
+
+    click.echo("")
+
+    click.echo(f"Axial measured force: {da_demand.axial_cell_force:.4f}")
+    click.echo(f"Lateral measured force: {da_demand.lateral_cell_force:.4f}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def force_actuator_force_and_status_da(ctx: CLIContext, address: None | int) -> None:
+    """Report status of a dual axis force actuator."""
+    dev_id = ctx.dev_id(address)
+    da_force = await ctx.execute(ForceActuatorForceAndStatusRequest(dev_id))
+
+    if da_force.isError():
+        click.echo("Error: {da_force}")
+        return
+
+    click.echo(f"ILC Fault: {da_force.ilc_fault}")
+    click.echo(f"DCA Fault: {da_force.dca_fault}")
+    click.echo(f"Communication counter: {da_force.communication_counter}")
+
+    click.echo("")
+
+    click.echo(f"Axial measured force: {da_force.axial_cell_force:.4f}")
+    click.echo(f"Lateral measured force: {da_force.lateral_cell_force:.4f}")
+
+
+@cli.command()
+@click.argument("scan-rate", type=int, default=ADCScanRate.NO_CHANGE)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def set_adc_scan_rate(ctx: CLIContext, scan_rate: int, address: None | int) -> None:
+    """Sets ADC scan rate for an actuator."""
+    dev_id = ctx.dev_id(address)
+    rate = await ctx.execute(SetADCScanRate(dev_id, ADCScanRate(scan_rate)))
+
+    if rate.isError():
+        click.echo(f"Error: {rate}")
+        return
+
+    click.echo(f"Scan Rate: {rate.scan_rate.name}")
+
+
+@cli.command()
+@click.argument("sensor_channel", type=int)
+@click.argument("offset", type=float)
+@click.argument("sensitivity", type=float)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def set_adc_channel_offset_and_sensitivity(
+    ctx: CLIContext, sensor_channel: int, offset: float, sensitivity: float, address: None | int
+) -> None:
+    """Set offset and sensitivity for ADC channel."""
+    dev_id = ctx.dev_id(address)
+    channel = await ctx.execute(
+        SetADCChannelOffsetAndSensitivityRequest(dev_id, sensor_channel, offset, sensitivity)
+    )
+
+    if channel.isError():
+        click.echo(f"Error: {channel}")
+        return
+
+    click.echo(f"Set ILC {address} ADC channel {sensor_channel}: {offset=:.3f} {sensitivity=:.3f}.")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_dac_values(ctx: CLIContext, address: None | int) -> None:
+    """Read DAC values."""
+    dev_id = ctx.dev_id(address)
+    dac_values = await ctx.execute(ReadDACValuesRequest(dev_id))
+
+    if dac_values.isError():
+        click.echo("Error: {dac_values}")
+        return
+
+    click.echo(f"DAC 1 (axial push): {dac_values.dac1_axial_push}")
+    click.echo(f"DAC 2 (axial pull): {dac_values.dac2_axial_pull}")
+    click.echo(f"DAC 3 (lateral push): {dac_values.dac3_lateral_push}")
+    click.echo(f"DAC 4 (lateral pull): {dac_values.dac4_lateral_pull}")
+
+
+@cli.command()
+@click.argument("heater-pwm", type=int)
+@click.argument("fan-pwm", type=int)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def thermal_demand(ctx: CLIContext, heater_pwm: int, fan_pwm: int, address: None | int) -> None:
+    """Set thermal FCU demands."""
+    dev_id = ctx.dev_id(address)
+    thermal = await ctx.execute(ThermalDemandRequest(dev_id, heater_pwm // 10, fan_pwm // 10))
+
+    if thermal.isError():
+        click.echo(f"Error: {thermal}")
+        return
+
+    click.echo(f"Differential temperature: {thermal.differential_temperature:.2f} °C")
+    click.echo(f"Fan RPM: {thermal.fan_rpm * 10} rpm")
+    click.echo(f"Absolute temperature: {thermal.absolute_temperature:.2f} °C")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def thermal_status(ctx: CLIContext, address: None | int) -> None:
+    """Report thermal FCU status."""
+    dev_id = ctx.dev_id(address)
+    thermal = await ctx.execute(ThermalStatusRequest(dev_id))
+
+    if thermal.isError():
+        click.echo(f"Error: {thermal}")
+        return
+
+    click.echo(f"Differential temperature: {thermal.differential_temperature:.2f} °C")
+    click.echo(f"Fan RPM: {thermal.fan_rpm * 10} rpm")
+    click.echo(f"Absolute temperature: {thermal.absolute_temperature:.2f} °C")
+
+
+@cli.command()
+@click.argument("proportional-gain", type=float)
+@click.argument("integral-gain", type=float)
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def set_reheater_gains(
+    ctx: CLIContext, proportional_gain: float, integral_gain: float, address: None | int
+) -> None:
+    """Set thermal FCU internal PI parameters."""
+    dev_id = ctx.dev_id(address)
+    reheater = await ctx.execute(SetReheaterGainsRequest(dev_id, proportional_gain, integral_gain))
+
+    if reheater.isError():
+        click.echo(f"Error: {reheater}")
+        return
+
+    click.echo(f"Set ILC {dev_id} to: {integral_gain=:.6f} {proportional_gain=:.6f}.")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_reheater_gains(ctx: CLIContext, address: None | int) -> None:
+    """Read thermal FCU PI terms."""
+    dev_id = ctx.dev_id(address)
+    reheater = await ctx.execute(ReadReheaterGainsRequest(dev_id))
+
+    if reheater.isError():
+        click.echo(f"Error: {reheater}")
+        return
+
+    click.echo(f"Reheater Gains P (proportional): {reheater.p:.6f}")
+    click.echo(f"Reheater Gains I (intergral): {reheater.i:.6f}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def reset(ctx: CLIContext, address: None | int) -> None:
+    """Reset ILC."""
+    dev_id = ctx.dev_id(address)
+    reset_response = await ctx.execute(Reset(dev_id))
+
+    if reset_response.isError():
+        click.echo(f"Error: {reset_response}")
+        return
+
+    click.echo(f"ILC {dev_id} reseted.")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_calibration_data(ctx: CLIContext, address: None | int) -> None:
+    """Read ILC calibration data."""
+    dev_id = ctx.dev_id(address)
+    calib_data = await ctx.execute(ReadCalibrationDataRequest(dev_id))
+
+    if calib_data.isError():
+        click.echo(f"Error: {calib_data}")
+        return
+
+    click.echo("                        1       2       3       4")
+
+    def __format_array(array: list[float]) -> str:
+        return " ".join([f"{a:7.3f}" for a in array])
+
+    click.echo(f"Main ADC            {__format_array(calib_data.main_adc_calibration)}")
+    click.echo(f"Main Offset         {__format_array(calib_data.main_sensor_offset)}")
+    click.echo(f"Main Sensitivity    {__format_array(calib_data.main_sensor_sensitivity)}")
+    click.echo(f"Backup ADC          {__format_array(calib_data.backup_adc_calibration)}")
+    click.echo(f"Backup Offset       {__format_array(calib_data.backup_sensor_offset)}")
+    click.echo(f"Backup Sensitivity  {__format_array(calib_data.backup_sensor_sensitivity)}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_pressure(ctx: CLIContext, address: None | int) -> None:
+    """Read pressure reported by mezzanine board."""
+    dev_id = ctx.dev_id(address)
+    pressure = await ctx.execute(ReadMezzaninePressureRequest(dev_id))
+
+    if pressure.isError():
+        click.echo(f"Error: {pressure}")
+        return
+
+    click.echo(f"Sensor 1 (Axial push): {pressure.axial_push:.2f} psi")
+    click.echo(f"Sensor 2 (Axial pull) : {pressure.axial_pull:.2f} psi")
+    click.echo(f"Sensor 3 (Lateral pull): {pressure.lateral_pull:.2f} psi")
+    click.echo(f"Sensor 4 (Lateral push): {pressure.lateral_push:.2f} psi")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_id(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board ID."""
+    dev_id = ctx.dev_id(address)
+    board_id = await ctx.execute(ReadMezzanineIDRequest(dev_id))
+
+    if board_id.isError():
+        click.echo(f"Error: {board_id}")
+        return
+
+    click.echo(f"Unique ID: {board_id.unique_id} (0x{board_id.unique_id:012x})")
+    click.echo(f"Firmware type code: {board_id.firmware_type_code}")
+    click.echo(f"Firmware version: {board_id.firmware_major_version}.{board_id.firmware_minor_version}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_status(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board status."""
+    dev_id = ctx.dev_id(address)
+    board_status = await ctx.execute(ReadMezzanineStatusRequest(dev_id))
+
+    if board_status.isError():
+        click.echo(f"Error: {board_status}")
+        return
+
+    for label, value in board_status.status_bits().items():
+        click.echo(f"{label}: {value}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_lvdt(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board LVDT."""
+    dev_id = ctx.dev_id(address)
+    lvdt = await ctx.execute(ReadMezzanineLVDTRequest(dev_id))
+
+    if lvdt.isError():
+        click.echo(f"Error: {lvdt}")
+        return
+
+    click.echo(f"LVDT 1: {lvdt.lvdt_1:.2f} psi")
+    click.echo(f"LVDT 2: {lvdt.lvdt_2:.2f} psi")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_monitor_sensors(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board LVDT."""
+    dev_id = ctx.dev_id(address)
+    monitor = await ctx.execute(ReadMonitorSensorsRequest(dev_id))
+
+    if monitor.isError():
+        click.echo(f"Error: {monitor}")
+        return
+
+    for i in range(4):
+        click.echo(f"Temperature {i}: {monitor.temperature[i]:.2f} °C")
 
 
 async def main() -> None:

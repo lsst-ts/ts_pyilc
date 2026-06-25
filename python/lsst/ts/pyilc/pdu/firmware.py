@@ -19,9 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .change_ilc_mode import ChangeILCMode, ILCMode
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, ILCResponse
-
 __all__ = ["flash"]
 
 import struct
@@ -32,6 +29,9 @@ from pymodbus.client import ModbusBaseClient
 from pymodbus.framer import FramerRTU
 from pymodbus.pdu import ModbusPDU
 from pymodbus.utilities import hexlify_packets
+
+from .change_ilc_mode import ChangeILCMode, ILCMode
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, ILCResponse
 
 """
 This module handles communication during ILC firmware update. Beware this

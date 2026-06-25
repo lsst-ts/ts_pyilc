@@ -19,52 +19,51 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["HardpointForceAndStatusRequest", "HardpointForceAndStatusResponse"]
+__all__ = ["ReadMezzanineIDRequest", "ReadMezzanineIDResponse"]
 
-import math as m
 import struct
+from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
 from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
 
 
-class HardpointForceAndStatusRequest(ILCRequest):
-    """Request Hardpoint Cell Forces and Status."""
-
-    function_code = ILCFunction.HP_FORCE_AND_STATUS
+class ReadMezzanineIDRequest(ILCRequest):
+    function_code = ILCFunction.READ_MEZZANINE_ID
 
 
-class HardpointForceAndStatusResponse(ModbusPDU):
-    """Report Hardpoint Cell Forces and Status."""
-
-    function_code = ILCFunction.HP_FORCE_AND_STATUS
+class ReadMezzanineIDResponse(ModbusPDU):
+    function_code = ILCFunction.READ_MEZZANINE_ID
     rtu_frame_size = 9
+
+    class FirmwareTypeCode(IntEnum):
+        UNKNOWN = 0
+        DCA_BOOTLOADER = 51
+        DCA_APPLICATION = 52
+        DCP_BOOTLOADER = 51
+        DCP_APPLICATION = 52
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
-        self.ssi_encoder_position: int = 0
-        self.load_cell_force: float = m.nan
-
-        self.ilc_fault: bool = False
-        self.limit_switch_cw: bool = False
-        self.limit_switch_ccw: bool = False
-        self.communication_counter: int = 0
+        self.unique_id: int = 0
+        self.firmware_type_code = self.FirmwareTypeCode.UNKNOWN
+        self.firmware_major_version: int = 0
+        self.firmware_minor_version: int = 0
 
     def encode(self) -> bytes:
-        status = (
-            (self.ilc_fault)
-            | (self.limit_switch_cw << 2)
-            | (self.limit_switch_ccw << 3)
-            | ((self.communication_counter << 4) & 0xF0)
+        id_bytes = self.unique_id.to_bytes(6, byteorder="big", signed=False)
+        return struct.pack(
+            ">6s3B",
+            id_bytes,
+            self.firmware_type_code,
+            self.firmware_major_version,
+            self.firmware_minor_version,
         )
-        return struct.pack(">Bif", status, self.ssi_encoder_position, self.load_cell_force)
 
     def decode(self, data: bytes) -> None:
-        (status, self.ssi_encoder_position, self.load_cell_force) = struct.unpack(">Bif", data)
-
-        self.ilc_fault = bool(status & 0x01)
-        self.limit_switch_cw = bool(status & 0x04)
-        self.limit_switch_ccw = bool(status & 0x08)
-        self.communication_counter = (status >> 4) & 0x0F
+        (id_bytes, self.firmware_type_code, self.firmware_major_version, self.firmware_minor_version) = (
+            struct.unpack(">6s3B", data)
+        )
+        self.unique_id = int.from_bytes(id_bytes, byteorder="big", signed=False)

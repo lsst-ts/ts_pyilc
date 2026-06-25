@@ -22,26 +22,62 @@
 import argparse
 import asyncio
 import logging
+import math as m
 
+import numpy as np
 from pymodbus.datastore import ModbusServerContext
 from pymodbus.pdu import ExceptionResponse, ModbusPDU
 from pymodbus.server import StartAsyncTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 
 from .pdu import (
+    ADCScanRate,
     ChangeILCMode,
-    ForceActuatorSetBoosterValveDCAGainRequest,
-    ForceActuatorSetBoosterValveDCAGainResponse,
+    ForceActuatorForceAndStatusDAResponse,
+    ForceActuatorForceAndStatusRequest,
+    ForceActuatorForceDemandDARequest,
+    ForceActuatorForceDemandDAResponse,
+    ForceActuatorReadBoosterValveDCAGainsRequest,
+    ForceActuatorReadBoosterValveDCAGainsResponse,
+    ForceActuatorSetBoosterValveDCAGainsRequest,
+    ForceActuatorSetBoosterValveDCAGainsResponse,
+    FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
     HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
     HardpointStepMotorMoveResponse,
     ILCMode,
+    ReadCalibrationDataRequest,
+    ReadCalibrationDataResponse,
+    ReadDACValuesRequest,
+    ReadDACValuesResponse,
+    ReadMezzanineIDRequest,
+    ReadMezzanineIDResponse,
+    ReadMezzanineLVDTRequest,
+    ReadMezzanineLVDTResponse,
+    ReadMezzaninePressureRequest,
+    ReadMezzaninePressureResponse,
+    ReadMezzanineStatusRequest,
+    ReadMezzanineStatusResponse,
+    ReadMonitorSensorsRequest,
+    ReadMonitorTemperatureSensorsResponse,
+    ReadReheaterGainsRequest,
+    ReadReheaterGainsResponse,
+    Reset,
     ServerIDRequest,
     ServerIDResponse,
     ServerStatusRequest,
     ServerStatusResponse,
+    SetADCChannelOffsetAndSensitivityRequest,
+    SetADCChannelOffsetAndSensitivityResponse,
+    SetADCScanRate,
     SetILCTemporaryAddress,
+    SetReheaterGainsRequest,
+    SetReheaterGainsResponse,
+    ThermalDemandRequest,
+    ThermalDemandResponse,
+    ThermalStatusRequest,
+    ThermalStatusResponse,
 )
 from .pdu.firmware import (
     EraseApplication,
@@ -53,6 +89,9 @@ from .pdu.firmware import (
     WriteVerifyApplicationResponse,
 )
 from .pdu.utils import ILCException
+
+# Global broadcast communication counter
+communication_counter = 0
 
 
 class SimulatedServerIDRequest(ServerIDRequest):
@@ -139,7 +178,14 @@ class SimulatedHardpointForceAndStatusRequest(HardpointForceAndStatusRequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         pdu = HardpointForceAndStatusResponse(dev_id=self.dev_id)
 
-        pdu.status = 42
+        global communication_counter
+
+        pdu.ilc_fault = True
+        pdu.limit_switch_cw = True
+        pdu.limit_switch_ccw = True
+        pdu.communication_counter = communication_counter & 0x0F
+        communication_counter += 1
+
         pdu.ssi_encoder_position = -8
         pdu.load_cell_force = 43.42
 
@@ -153,9 +199,32 @@ class SimulatedSetILCTemporaryAddress(SetILCTemporaryAddress):
         return pdu
 
 
-class SimulatedForceActuatorSetBoosterValveDCAGainRequest(ForceActuatorSetBoosterValveDCAGainRequest):
+axial_gain = 42.42
+lateral_gain = -42.42
+
+
+class SimulatedForceActuatorSetBoosterValveDCAGainsRequest(ForceActuatorSetBoosterValveDCAGainsRequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
-        pdu = ForceActuatorSetBoosterValveDCAGainResponse(dev_id=self.dev_id)
+        global axial_gain
+        global lateral_gain
+
+        axial_gain = self.axial_gain
+        lateral_gain = self.lateral_gain
+
+        pdu = ForceActuatorSetBoosterValveDCAGainsResponse(dev_id=self.dev_id)
+
+        return pdu
+
+
+class SimulatedForceActuatorReadBoosterValveDCAGainsRequest(ForceActuatorReadBoosterValveDCAGainsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ForceActuatorReadBoosterValveDCAGainsResponse(dev_id=self.dev_id)
+
+        global axial_gain
+        global lateral_gain
+
+        pdu.axial_gain = self.axial_gain
+        pdu.lateral_gain = self.lateral_gain
 
         return pdu
 
@@ -188,6 +257,230 @@ class SimulatedWriteVerifyApplicationRequest(WriteVerifyApplicationRequest):
         return pdu
 
 
+class SimulatedFreezeSensorValuesBroadcast(FreezeSensorValuesBroadcast):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> None:
+        return None
+
+
+axial_force: float = 0
+lateral_force: float = 0
+
+
+class SimulatedForceActuatorForceDemandDARequest(ForceActuatorForceDemandDARequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ForceActuatorForceDemandDAResponse(dev_id=self.dev_id)
+
+        global communication_counter
+
+        pdu.ilc_fault = True
+        pdu.dca_fault = True
+        pdu.communication_counter = communication_counter
+
+        global axial_force
+        global lateral_force
+
+        axial_force = self.axial_force_setpoint / 1000.0
+        lateral_force = self.lateral_force_setpoint / 1000.0
+
+        pdu.axial_cell_force = axial_force
+        pdu.lateral_cell_force = lateral_force
+
+        return pdu
+
+
+class SimulatedForceActuatorForceAndStatusRequest(ForceActuatorForceAndStatusRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ForceActuatorForceAndStatusDAResponse(dev_id=self.dev_id)
+
+        global communication_counter
+
+        pdu.ilc_fault = True
+        pdu.dca_fault = True
+        pdu.communication_counter = communication_counter
+
+        global axial_force
+        global lateral_force
+
+        pdu.axial_cell_force = axial_force
+        pdu.lateral_cell_force = lateral_force
+
+        return pdu
+
+
+adc_scan_rate: ADCScanRate = ADCScanRate.RATE_50
+
+
+class SimulatedSetADCScanRate(SetADCScanRate):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        global adc_scan_rate
+        if self.scan_rate == ADCScanRate.NO_CHANGE:
+            self.scan_rate = adc_scan_rate
+        else:
+            adc_scan_rate = self.scan_rate
+        return self
+
+
+cell_offset: list[float] = [m.nan] * 4
+cell_sensitivity: list[float] = [m.nan] * 4
+
+
+class SimulatedSetADCChannelOffsetAndSensitivityRequest(SetADCChannelOffsetAndSensitivityRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        if 1 <= self.sensor_channel <= 4:
+            cell_offset[self.sensor_channel] = self.offset
+            cell_sensitivity[self.sensor_channel] = self.sensitivity
+        else:
+            return ExceptionResponse(self.function_code, ILCException.ILLEGAL_FUNCTION, device_id)
+        return SetADCChannelOffsetAndSensitivityResponse(dev_id=device_id)
+
+
+class SimulatedReadDACValuesRequest(ReadDACValuesRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadDACValuesResponse(dev_id=device_id)
+
+        pdu.dac1_axial_push = 41
+        pdu.dac2_axial_pull = 42
+        pdu.dac3_lateral_push = 43
+        pdu.dac4_lateral_pull = 44
+
+        return pdu
+
+
+class SimulatedThermalDemandRequest(ThermalDemandRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ThermalDemandResponse(dev_id=device_id)
+
+        pdu.ilc_fault = True
+        pdu.heater_disabled = False
+        pdu.breaker_1 = True
+        pdu.breaker_2 = True
+
+        global communication_counter
+
+        pdu.communication_counter = communication_counter
+
+        pdu.differential_temperature = -42.54
+        pdu.fan_rpm = 42
+        pdu.absolute_temperature = 42.34
+
+        return pdu
+
+
+class SimulatedThermalStatusRequest(ThermalStatusRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ThermalStatusResponse(dev_id=device_id)
+
+        pdu.ilc_fault = True
+        pdu.heater_disabled = False
+        pdu.breaker_1 = True
+        pdu.breaker_2 = False
+
+        global communication_counter
+
+        pdu.communication_counter = communication_counter
+
+        pdu.differential_temperature = 42.54
+        pdu.fan_rpm = 0x42
+        pdu.absolute_temperature = -42.34
+
+        return pdu
+
+
+reheater_gains_p: float = 0
+reheater_gains_i: float = 0
+
+
+class SimulatedSetReheaterGainsRequest(SetReheaterGainsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        global reheater_gains_p
+        global reheater_gains_i
+
+        reheater_gains_p = self.p
+        reheater_gains_i = self.i
+
+        return SetReheaterGainsResponse(dev_id=device_id)
+
+
+class SimulatedReadReheaterGainsRequest(ReadReheaterGainsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        global reheater_gains_p
+        global reheater_gains_i
+        return ReadReheaterGainsResponse(device_id, reheater_gains_p, reheater_gains_i)
+
+
+class SimulatedReset(Reset):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        return self
+
+
+class SimulatedReadCalibrationDataRequest(ReadCalibrationDataRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadCalibrationDataResponse(device_id)
+
+        pdu.main_adc_calibration = np.arange(42.42, 42.82, 0.1)
+        print(pdu.main_adc_calibration)
+        pdu.main_sensor_offset = np.arange(4.11, 4.31, 0.05)
+        pdu.main_sensor_sensitivity = np.arange(4.2, 8.2, 1)
+
+        pdu.backup_adc_calibration = np.arange(-42.42, -42.82, -0.1)
+        pdu.backup_sensor_offset = np.arange(-4.11, -4.31, -0.05)
+        pdu.backup_sensor_sensitivity = np.arange(-4.2, -8.2, -1)
+
+        return pdu
+
+
+class SimulatedReadMezzaninePressureRequest(ReadMezzaninePressureRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMezzaninePressureResponse(device_id)
+
+        pdu.axial_push = 4.2
+        pdu.axial_pull = -4.1
+        pdu.lateral_pull = 4.242
+        pdu.lateral_push = -424.2
+
+        return pdu
+
+
+class SimulatedReadMezzanineIDRequest(ReadMezzanineIDRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMezzanineIDResponse(device_id)
+
+        pdu.unique_id = 0x420142024203
+        pdu.firmware_type_code = ReadMezzanineIDResponse.FirmwareTypeCode.UNKNOWN
+        pdu.firmware_major_version = 2
+        pdu.firmware_minor_version = 4
+
+        return pdu
+
+
+class SimulatedReadMezzanineLVDTRequest(ReadMezzanineLVDTRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMezzanineLVDTResponse(device_id)
+
+        pdu.lvdt_1 = 4.2
+        pdu.lvdt_2 = -4.2
+
+        return pdu
+
+
+class SimulatedReadMezzanineStatusRequest(ReadMezzanineStatusRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMezzanineStatusResponse(device_id)
+
+        pdu.status = 0xFF
+
+        return pdu
+
+
+class SimulatedReadMonitorSensorsRequest(ReadMonitorSensorsRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMonitorTemperatureSensorsResponse(device_id)
+
+        pdu.temperature = np.arange(4.2, 21.0, 4.2)
+
+        return pdu
+
+
 async def main(host: str, port: int) -> None:
     print(f"Starting simulator on {host}:{port}.")
 
@@ -202,11 +495,29 @@ async def main(host: str, port: int) -> None:
                 SimulatedHardpointStepMoveRequest,
                 SimulatedHardpointForceAndStatusRequest,
                 SimulatedSetILCTemporaryAddress,
-                SimulatedForceActuatorSetBoosterValveDCAGainRequest,
+                SimulatedForceActuatorSetBoosterValveDCAGainsRequest,
+                SimulatedForceActuatorReadBoosterValveDCAGainsRequest,
                 SimulatedWriteApplicationStatesReques,
                 SimulatedEraseApplication,
                 SimulatedWriteApplicationPageRequest,
                 SimulatedWriteVerifyApplicationRequest,
+                SimulatedFreezeSensorValuesBroadcast,
+                SimulatedForceActuatorForceDemandDARequest,
+                SimulatedForceActuatorForceAndStatusRequest,
+                SimulatedSetADCScanRate,
+                SimulatedSetADCChannelOffsetAndSensitivityRequest,
+                SimulatedReadDACValuesRequest,
+                SimulatedThermalDemandRequest,
+                SimulatedThermalStatusRequest,
+                SimulatedSetReheaterGainsRequest,
+                SimulatedReadReheaterGainsRequest,
+                SimulatedReset,
+                SimulatedReadCalibrationDataRequest,
+                SimulatedReadMezzaninePressureRequest,
+                SimulatedReadMezzanineIDRequest,
+                SimulatedReadMezzanineStatusRequest,
+                SimulatedReadMezzanineLVDTRequest,
+                SimulatedReadMonitorSensorsRequest,
             ],
         )
     )

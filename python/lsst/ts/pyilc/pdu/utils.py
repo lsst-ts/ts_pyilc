@@ -25,6 +25,12 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
+ELECTROMECHANICAL_BROADCAST_ADDRESS = 248
+"""Broadcast address for electromechanical ILCs."""
+
+PNEUMATIC_BROADCAST_ADDRESS = 249
+"""Broadcast address for pneumatic ILCs."""
+
 DEFAULT_ILC_ADDRESS = 255
 """Address ILC uses in case TEDS is not connected."""
 
@@ -42,8 +48,9 @@ class ILCFunction(IntEnum):
     SET_TEMP_ILC_ADDR = 0x48  # 72
     SET_ADC_SCANRATE = 0x50  # 80
     SET_ADC_CHANNEL_OFFSET = 0x51  # 81
+    READ_DAC_VALUES = 0x52  # 82
     RESET_SERVER = 0x6B  # 107
-    READ_CALIBRATION = 0x6E  # 110
+    READ_CALIBRATION_DATA = 0x6E  # 110
 
     READ_MEZZANINE_PRESSURE = 0x77  # 119
     READ_MEZZANINE_ID = 0x78  # 120
@@ -71,6 +78,8 @@ class ILCFunction(IntEnum):
     # TS - Thermal ILC
     TS_DEMAND = 0x58  # 88
     TS_STATUS = 0x59  # 89
+    SET_REHEATER_GAINS = 0x5C
+    READ_REHEATER_GAINS = 0x5D
 
     # M2 - M2 Support System ILC
     READ_MONITOR_SENSORS = 0x54  # 84

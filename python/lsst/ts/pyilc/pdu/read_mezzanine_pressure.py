@@ -19,40 +19,42 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["ForceActuatorSetBoosterValveDCAGainRequest", "ForceActuatorSetBoosterValveDCAGainResponse"]
+__all__ = ["ReadMezzaninePressureRequest", "ReadMezzaninePressureResponse"]
 
 import math as m
 import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
 
 
-class ForceActuatorSetBoosterValveDCAGainRequest(ModbusPDU):
-    function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS
-    rtu_frame_size = 8
+class ReadMezzaninePressureRequest(ILCRequest):
+    function_code = ILCFunction.READ_MEZZANINE_PRESSURE
 
-    def __init__(
-        self, dev_id: int = DEFAULT_ILC_ADDRESS, axial_gain: float = m.nan, lateral_gain: float = m.nan
-    ):
+
+class ReadMezzaninePressureResponse(ModbusPDU):
+    """Reads pressure reported by mezzanine board."""
+
+    function_code = ILCFunction.READ_MEZZANINE_PRESSURE
+    rtu_frame_size = 16
+
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
-        self.axial_gain = axial_gain
-        self.lateral_gain = lateral_gain
+        self.axial_push = m.nan
+        self.axial_pull = m.nan
+        self.lateral_pull = m.nan
+        self.lateral_push = m.nan
 
     def encode(self) -> bytes:
-        return struct.pack(">ff", self.axial_gain, self.lateral_gain)
+        return struct.pack(
+            ">4f",
+            self.axial_push,
+            self.axial_pull,
+            self.lateral_pull,
+            self.lateral_push,
+        )
 
     def decode(self, data: bytes) -> None:
-        (self.axial_gain, self.lateral_gain) = struct.unpack(">ff", data)
-
-
-class ForceActuatorSetBoosterValveDCAGainResponse(ModbusPDU):
-    function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS
-
-    def encode(self) -> bytes:
-        return b""
-
-    def decode(self, data: bytes) -> None:
-        pass
+        (self.axial_push, self.axial_pull, self.lateral_pull, self.lateral_push) = struct.unpack(">4f", data)

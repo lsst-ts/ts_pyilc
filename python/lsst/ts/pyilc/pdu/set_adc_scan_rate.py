@@ -19,28 +19,43 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["SetILCTemporaryAddress"]
+__all__ = ["ADCScanRate", "SetADCScanRate"]
 
 import struct
+from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
 from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
 
 
-class SetILCTemporaryAddress(ModbusPDU):
-    """Set ILC temporary address. Both Request and Response have the same
-    payload."""
+class ADCScanRate(IntEnum):
+    RATE_50 = 0
+    RATE_60 = 1
+    RATE_100 = 2
+    RATE_120 = 3
+    RATE_200 = 4
+    RATE_240 = 5
+    RATE_300 = 6
+    RATE_400 = 7
+    RATE_480 = 8
+    RATE_600 = 9
+    RATE_1200 = 10
+    RATE_2400 = 11
+    RATE_4800 = 12
+    NO_CHANGE = 0xFF
 
-    function_code = ILCFunction.SET_TEMP_ILC_ADDR
+
+class SetADCScanRate(ModbusPDU):
+    function_code = ILCFunction.SET_ADC_SCANRATE
     rtu_frame_size = 1
 
-    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, scan_rate: ADCScanRate = ADCScanRate.NO_CHANGE):
         super().__init__(dev_id=dev_id)
-        self.address = new_address
+        self.scan_rate = scan_rate
 
     def encode(self) -> bytes:
-        return struct.pack(">B", self.address)
+        return struct.pack(">B", self.scan_rate)
 
     def decode(self, data: bytes) -> None:
-        self.address = int.from_bytes(data)
+        self.scan_rate = ADCScanRate(data[0])

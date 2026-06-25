@@ -19,28 +19,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["SetILCTemporaryAddress"]
-
-import struct
-
-from pymodbus.pdu import ModbusPDU
-
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+__all__ = [
+    "ForceActuatorForceAndStatusRequest",
+    "ForceActuatorForceAndStatusSAResponse",
+    "ForceActuatorForceAndStatusDAResponse",
+]
 
 
-class SetILCTemporaryAddress(ModbusPDU):
-    """Set ILC temporary address. Both Request and Response have the same
-    payload."""
+from .force_actuator_force_demand import (
+    ForceActuatorForceDemandDAResponse,
+    ForceActuatorForceDemandSAResponse,
+)
+from .utils import ILCFunction, ILCRequest
 
-    function_code = ILCFunction.SET_TEMP_ILC_ADDR
-    rtu_frame_size = 1
 
-    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
-        super().__init__(dev_id=dev_id)
-        self.address = new_address
+class ForceActuatorForceAndStatusRequest(ILCRequest):
+    """Single axis force actuator force demand."""
 
-    def encode(self) -> bytes:
-        return struct.pack(">B", self.address)
+    function_code = ILCFunction.FA_FORCE_AND_STATUS
 
-    def decode(self, data: bytes) -> None:
-        self.address = int.from_bytes(data)
+
+class ForceActuatorForceAndStatusSAResponse(ForceActuatorForceDemandSAResponse):
+    function_code = ILCFunction.FA_FORCE_AND_STATUS
+
+
+class ForceActuatorForceAndStatusDAResponse(ForceActuatorForceDemandDAResponse):
+    function_code = ILCFunction.FA_FORCE_AND_STATUS

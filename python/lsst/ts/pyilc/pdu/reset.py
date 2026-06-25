@@ -19,28 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["SetILCTemporaryAddress"]
+__all__ = ["Reset"]
 
-import struct
-
-from pymodbus.pdu import ModbusPDU
-
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import ILCFunction, ILCRequest
 
 
-class SetILCTemporaryAddress(ModbusPDU):
-    """Set ILC temporary address. Both Request and Response have the same
-    payload."""
-
-    function_code = ILCFunction.SET_TEMP_ILC_ADDR
-    rtu_frame_size = 1
-
-    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
-        super().__init__(dev_id=dev_id)
-        self.address = new_address
-
-    def encode(self) -> bytes:
-        return struct.pack(">B", self.address)
-
-    def decode(self, data: bytes) -> None:
-        self.address = int.from_bytes(data)
+class Reset(ILCRequest):
+    function_code = ILCFunction.RESET_SERVER

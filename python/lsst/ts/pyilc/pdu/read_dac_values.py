@@ -19,28 +19,40 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["SetILCTemporaryAddress"]
+__all__ = ["ReadDACValuesRequest", "ReadDACValuesResponse"]
 
+import math as m
 import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
 
 
-class SetILCTemporaryAddress(ModbusPDU):
-    """Set ILC temporary address. Both Request and Response have the same
-    payload."""
+class ReadDACValuesRequest(ILCRequest):
+    """read DAC values."""
 
-    function_code = ILCFunction.SET_TEMP_ILC_ADDR
-    rtu_frame_size = 1
+    function_code = ILCFunction.READ_DAC_VALUES
 
-    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
-        super().__init__(dev_id=dev_id)
-        self.address = new_address
+
+class ReadDACValuesResponse(ModbusPDU):
+    function_code = ILCFunction.READ_DAC_VALUES
+    rtu_frame_size = 8
+
+    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
+        super().__init__(dev_id)
+
+        self.dac1_axial_push = m.nan
+        self.dac2_axial_pull = m.nan
+        self.dac3_lateral_push = m.nan
+        self.dac4_lateral_pull = m.nan
 
     def encode(self) -> bytes:
-        return struct.pack(">B", self.address)
+        return struct.pack(
+            ">4H", self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull
+        )
 
     def decode(self, data: bytes) -> None:
-        self.address = int.from_bytes(data)
+        (self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull) = (
+            struct.unpack(">4H", data)
+        )

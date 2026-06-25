@@ -19,28 +19,34 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["SetILCTemporaryAddress"]
+__all__ = ["ForceActuatorSetBoosterValveDCAGainsRequest", "ForceActuatorSetBoosterValveDCAGainsResponse"]
 
+import math as m
 import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCResponse
 
 
-class SetILCTemporaryAddress(ModbusPDU):
-    """Set ILC temporary address. Both Request and Response have the same
-    payload."""
+class ForceActuatorSetBoosterValveDCAGainsRequest(ModbusPDU):
+    function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS
+    rtu_frame_size = 8
 
-    function_code = ILCFunction.SET_TEMP_ILC_ADDR
-    rtu_frame_size = 1
-
-    def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
+    def __init__(
+        self, dev_id: int = DEFAULT_ILC_ADDRESS, axial_gain: float = m.nan, lateral_gain: float = m.nan
+    ):
         super().__init__(dev_id=dev_id)
-        self.address = new_address
+
+        self.axial_gain = axial_gain
+        self.lateral_gain = lateral_gain
 
     def encode(self) -> bytes:
-        return struct.pack(">B", self.address)
+        return struct.pack(">ff", self.axial_gain, self.lateral_gain)
 
     def decode(self, data: bytes) -> None:
-        self.address = int.from_bytes(data)
+        (self.axial_gain, self.lateral_gain) = struct.unpack(">ff", data)
+
+
+class ForceActuatorSetBoosterValveDCAGainsResponse(ILCResponse):
+    function_code = ILCFunction.FA_SET_BOOSTER_VALVE_DCA_GAINS

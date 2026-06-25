@@ -53,6 +53,8 @@ from .pdu import (
     ReadDACValuesResponse,
     ReadMezzanineIDRequest,
     ReadMezzanineIDResponse,
+    ReadMezzanineLVDTRequest,
+    ReadMezzanineLVDTResponse,
     ReadMezzaninePressureRequest,
     ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
@@ -449,6 +451,16 @@ class SimulatedReadMezzanineIDRequest(ReadMezzanineIDRequest):
         return pdu
 
 
+class SimulatedReadMezzanineLVDTRequest(ReadMezzanineLVDTRequest):
+    async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
+        pdu = ReadMezzanineLVDTResponse(device_id)
+
+        pdu.lvdt_1 = 4.2
+        pdu.lvdt_2 = -4.2
+
+        return pdu
+
+
 class SimulatedReadMezzanineStatusRequest(ReadMezzanineStatusRequest):
     async def datastore_update(self, context: ModbusServerContext, device_id: int) -> ModbusPDU:
         pdu = ReadMezzanineStatusResponse(device_id)
@@ -493,6 +505,7 @@ async def main(host: str, port: int) -> None:
                 SimulatedReadMezzaninePressureRequest,
                 SimulatedReadMezzanineIDRequest,
                 SimulatedReadMezzanineStatusRequest,
+                SimulatedReadMezzanineLVDTRequest,
             ],
         )
     )

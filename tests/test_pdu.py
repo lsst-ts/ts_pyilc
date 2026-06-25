@@ -46,6 +46,8 @@ from lsst.ts.pyilc.pdu import (
     ReadDACValuesResponse,
     ReadMezzanineIDRequest,
     ReadMezzanineIDResponse,
+    ReadMezzanineLVDTRequest,
+    ReadMezzanineLVDTResponse,
     ReadMezzaninePressureRequest,
     ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
@@ -111,6 +113,7 @@ class PduTestCase(unittest.TestCase):
         (0x77, b"\x77B(p\xa4B(\xd7\nB)=qB)\xa3\xd7"),
         (0x78, b"\x78\x01\x02\x03\x04\x05\x42\x35\x04\x02"),
         (0x79, b"\x79\x01\x02"),
+        (0x7A, b"\x7aB(p\xa4B(\xd7\n"),
     ]
 
     @parameterized.expand(responses)
@@ -141,7 +144,8 @@ class PduTestCase(unittest.TestCase):
         server.add_pdu(ReadCalibrationDataRequest, ReadCalibrationDataResponse)
         server.add_pdu(ReadMezzaninePressureRequest, ReadMezzaninePressureResponse)
         server.add_pdu(ReadMezzanineIDRequest, ReadMezzanineIDResponse)
-        (server.add_pdu(ReadMezzanineStatusRequest, ReadMezzanineStatusResponse),)
+        server.add_pdu(ReadMezzanineStatusRequest, ReadMezzanineStatusResponse)
+        server.add_pdu(ReadMezzanineLVDTRequest, ReadMezzanineLVDTResponse)
 
         pdu = self.server.decode(frame)
 
@@ -264,6 +268,9 @@ class PduTestCase(unittest.TestCase):
             assert pdu.firmware_minor_version == 2
         elif pdu.function_code == ILCFunction.READ_MEZZANINE_STATUS:
             assert pdu.status == 0x0102
+        elif pdu.function_code == ILCFunction.HM_READ_MEZZANINE_LVDT:
+            self.assertAlmostEqual(pdu.lvdt_1, 42.11, places=4)
+            self.assertAlmostEqual(pdu.lvdt_2, 42.21, places=4)
         else:
             self.fail(
                 f"Unhandled function code when checking decoding: {pdu.function_code} ({pdu.function_code:x})"

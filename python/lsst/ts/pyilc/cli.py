@@ -52,6 +52,8 @@ from .pdu import (
     ReadDACValuesResponse,
     ReadMezzanineIDRequest,
     ReadMezzanineIDResponse,
+    ReadMezzanineLVDTRequest,
+    ReadMezzanineLVDTResponse,
     ReadMezzaninePressureRequest,
     ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
@@ -139,6 +141,7 @@ class CLIContext:
         client.register(ReadMezzaninePressureResponse)
         client.register(ReadMezzanineIDResponse)
         client.register(ReadMezzanineStatusResponse)
+        client.register(ReadMezzanineLVDTResponse)
 
         self.client = client
         self.name = str(client)
@@ -762,6 +765,22 @@ async def read_mezzanine_status(ctx: CLIContext, address: None | int) -> None:
 
     for label, value in board_status.status_bits().items():
         click.echo(f"{label}: {value}")
+
+
+@cli.command()
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def read_mezzanine_lvdt(ctx: CLIContext, address: None | int) -> None:
+    """Read mezzanine board LVDT."""
+    dev_id = ctx.dev_id(address)
+    lvdt = await ctx.execute(ReadMezzanineLVDTRequest(dev_id))
+
+    if lvdt.isError():
+        click.echo(f"Error: {lvdt}")
+        return
+
+    click.echo(f"LVDT 1: {lvdt.lvdt_1:.2f} psi")
+    click.echo(f"LVDT 2: {lvdt.lvdt_2:.2f} psi")
 
 
 async def main() -> None:

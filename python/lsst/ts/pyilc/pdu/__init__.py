@@ -42,3 +42,4 @@ from .read_calibration_data import ReadCalibrationDataRequest, ReadCalibrationDa
 from .read_mezzanine_pressure import ReadMezzaninePressureRequest, ReadMezzaninePressureResponse
 from .read_mezzanine_id import ReadMezzanineIDRequest, ReadMezzanineIDResponse
 from .read_mezzanine_status import ReadMezzanineStatusRequest, ReadMezzanineStatusResponse
+from .read_mezzanine_lvdt import ReadMezzanineLVDTRequest, ReadMezzanineLVDTResponse

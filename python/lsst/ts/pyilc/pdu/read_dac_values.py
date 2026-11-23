@@ -37,7 +37,6 @@ class ReadDACValuesRequest(ILCRequest):
 
 class ReadDACValuesResponse(ModbusPDU):
     function_code = ILCFunction.READ_DAC_VALUES
-    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id)
@@ -47,12 +46,16 @@ class ReadDACValuesResponse(ModbusPDU):
         self.dac3_lateral_push = m.nan
         self.dac4_lateral_pull = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(
             ">4H", self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull) = (
             struct.unpack(">4H", data)
         )
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 12

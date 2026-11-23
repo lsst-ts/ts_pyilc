@@ -37,7 +37,6 @@ class ReadMezzaninePressureResponse(ModbusPDU):
     """Reads pressure reported by mezzanine board."""
 
     function_code = ILCFunction.READ_MEZZANINE_PRESSURE
-    rtu_frame_size = 16
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
@@ -47,7 +46,7 @@ class ReadMezzaninePressureResponse(ModbusPDU):
         self.lateral_pull = m.nan
         self.lateral_push = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(
             ">4f",
             self.axial_push,
@@ -56,5 +55,9 @@ class ReadMezzaninePressureResponse(ModbusPDU):
             self.lateral_push,
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.axial_push, self.axial_pull, self.lateral_pull, self.lateral_push) = struct.unpack(">4f", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 20

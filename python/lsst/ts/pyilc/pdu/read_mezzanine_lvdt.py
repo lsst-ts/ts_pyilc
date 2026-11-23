@@ -35,7 +35,6 @@ class ReadMezzanineLVDTRequest(ILCRequest):
 
 class ReadMezzanineLVDTResponse(ModbusPDU):
     function_code = ILCFunction.HM_READ_MEZZANINE_LVDT
-    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
@@ -43,8 +42,12 @@ class ReadMezzanineLVDTResponse(ModbusPDU):
         self.lvdt_1 = m.nan
         self.lvdt_2 = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">ff", self.lvdt_1, self.lvdt_2)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.lvdt_1, self.lvdt_2) = struct.unpack(">ff", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 12

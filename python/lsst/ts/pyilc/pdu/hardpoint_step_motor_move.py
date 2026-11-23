@@ -33,24 +33,26 @@ class HardpointStepMotorMoveRequest(ModbusPDU):
     """Request Hardpoint Step Motor to move."""
 
     function_code = ILCFunction.HP_STEP_MOTOR_MOVE
-    rtu_frame_size = 1
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, step_motor_command: int = 0):
         super().__init__(dev_id=dev_id)
         self.step_motor_command = step_motor_command
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">B", self.step_motor_command)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.step_motor_command = int.from_bytes(data, byteorder="big")
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 5
 
 
 class HardpointStepMotorMoveResponse(ModbusPDU):
     """Report Hardpoint Forces and Encoder Position."""
 
     function_code = ILCFunction.HP_STEP_MOTOR_MOVE
-    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
@@ -58,8 +60,12 @@ class HardpointStepMotorMoveResponse(ModbusPDU):
         self.ssi_encoder_position: int = 0
         self.load_cell_force: float = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">if", self.ssi_encoder_position, self.load_cell_force)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.ssi_encoder_position, self.load_cell_force) = struct.unpack(">if", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 12

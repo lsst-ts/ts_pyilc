@@ -38,7 +38,6 @@ class ServerStatusResponse(ModbusPDU):
     """Report server status response."""
 
     function_code = ILCFunction.REPORT_SERVER_STATUS
-    rtu_frame_size = 5
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
@@ -46,8 +45,12 @@ class ServerStatusResponse(ModbusPDU):
         self.status: int = 0
         self.faults: int = 0
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">BHH", self.mode, self.status, self.faults)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.mode, self.status, self.faults) = struct.unpack(">BHH", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 9

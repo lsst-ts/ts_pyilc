@@ -25,3 +25,4 @@ except ImportError:
     __version__ = "?"
 
 from .pdu import ServerIDRequest, ServerIDResponse
+from .ilc_faults import ILCFaults

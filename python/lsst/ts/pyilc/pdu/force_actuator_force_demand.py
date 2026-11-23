@@ -48,7 +48,6 @@ class ForceActuatorForceDemandSARequest(ModbusPDU):
     """
 
     function_code = ILCFunction.FA_FORCE_DEMAND
-    rtu_frame_size = 4
 
     def __init__(
         self,
@@ -61,19 +60,22 @@ class ForceActuatorForceDemandSARequest(ModbusPDU):
         self.slew_flag = slew_flag
         self.force_setpoint = force_setpoint
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">B", self.slew_flag) + self.force_setpoint.to_bytes(
             3, byteorder="big", signed=True
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.slew_flag = data[0]
         self.force_setpoint = int.from_bytes(data[1:4], byteorder="big", signed=True)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 8
 
 
 class ForceActuatorForceDemandSAResponse(ModbusPDU):
     function_code = ILCFunction.FA_FORCE_DEMAND
-    rtu_frame_size = 5
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id)
@@ -84,21 +86,24 @@ class ForceActuatorForceDemandSAResponse(ModbusPDU):
 
         self.load_cell_force: float = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         status = (self.ilc_fault) | (self.dca_fault << 1) | ((self.communication_counter << 4) & 0xF0)
         return struct.pack(">Bf", status, self.load_cell_force)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (status, self.load_cell_force) = struct.unpack(">Bf", data)
 
         self.ilc_fault = bool(status & 0x01)
         self.dca_fault = bool(status & 0x02)
         self.communication_counter = (status >> 4) & 0x0F
 
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 9
+
 
 class ForceActuatorForceDemandDARequest(ModbusPDU):
     function_code = ILCFunction.FA_FORCE_DEMAND
-    rtu_frame_size = 7
 
     def __init__(
         self,
@@ -113,22 +118,25 @@ class ForceActuatorForceDemandDARequest(ModbusPDU):
         self.axial_force_setpoint = axial_force_setpoint
         self.lateral_force_setpoint = lateral_force_setpoint
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return (
             struct.pack(">B", self.slew_flag)
             + self.axial_force_setpoint.to_bytes(3, byteorder="big", signed=True)
             + self.lateral_force_setpoint.to_bytes(3, byteorder="big", signed=True)
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.slew_flag = data[0]
         self.axial_force_setpoint = int.from_bytes(data[1:4], byteorder="big", signed=True)
         self.lateral_force_setpoint = int.from_bytes(data[4:7], byteorder="big", signed=True)
 
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 11
+
 
 class ForceActuatorForceDemandDAResponse(ModbusPDU):
     function_code = ILCFunction.FA_FORCE_DEMAND
-    rtu_frame_size = 9
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id)
@@ -140,13 +148,17 @@ class ForceActuatorForceDemandDAResponse(ModbusPDU):
         self.axial_cell_force: float = m.nan
         self.lateral_cell_force: float = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         status = (self.ilc_fault) | (self.dca_fault << 1) | ((self.communication_counter << 4) & 0xF0)
         return struct.pack(">Bff", status, self.axial_cell_force, self.lateral_cell_force)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (status, self.axial_cell_force, self.lateral_cell_force) = struct.unpack(">Bff", data)
 
         self.ilc_fault = bool(status & 0x01)
         self.dca_fault = bool(status & 0x02)
         self.communication_counter = (status >> 4) & 0x0F
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 13

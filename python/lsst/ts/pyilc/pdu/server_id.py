@@ -38,7 +38,6 @@ class ServerIDResponse(ModbusPDU):
     """Report Server ID response."""
 
     function_code = ILCFunction.REPORT_SERVER_ID
-    rtu_byte_count_pos = 2
 
     unique_id: int = 0
     ilc_app_type: int = 0
@@ -49,7 +48,7 @@ class ServerIDResponse(ModbusPDU):
     minor_rev: int = 0
     firmware_name: str = ""
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         id_bytes = self.unique_id.to_bytes(6, byteorder="big", signed=False)
         fn_len = len(self.firmware_name)
 
@@ -66,12 +65,12 @@ class ServerIDResponse(ModbusPDU):
             self.firmware_name.encode(),
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         fn_len = data[0]
 
         if fn_len < 12:
             raise RuntimeError(
-                f"Invalid lenght in Server ID packed - expected at least 12, received {fn_len}"
+                f"Invalid length in Server ID packed - expected at least 12, received {fn_len}"
             )
 
         (
@@ -87,3 +86,7 @@ class ServerIDResponse(ModbusPDU):
 
         self.unique_id = int.from_bytes(id_bytes, byteorder="big", signed=False)
         self.firmware_name = firmware_name.decode()
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return data[2] + 5

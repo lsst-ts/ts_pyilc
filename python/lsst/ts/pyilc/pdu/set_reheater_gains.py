@@ -43,7 +43,6 @@ class SetReheaterGainsRequest(ModbusPDU):
     """
 
     function_code = ILCFunction.SET_REHEATER_GAINS
-    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, p: float = m.nan, i: float = m.nan):
         super().__init__(dev_id=dev_id)
@@ -51,11 +50,15 @@ class SetReheaterGainsRequest(ModbusPDU):
         self.p = p
         self.i = i
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">ff", self.p, self.i)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.p, self.i) = struct.unpack(">ff", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 12
 
 
 class SetReheaterGainsResponse(ILCResponse):

@@ -51,7 +51,7 @@ class MockClient:
         self.output_file = open(output)
 
     async def execute(self, no_return: bool, request: ModbusPDU) -> ModbusPDU:
-        req = request.encode()
+        req = request.x_encode()
         print("TestCase.execute:", str(request), request.function_code, hexlify_packets(req))
         expected_out = self.output_file.readline()
 
@@ -112,7 +112,7 @@ class PduTestCase(unittest.IsolatedAsyncioTestCase):
 
         pdu = self.server.decode(frame)
 
-        assert pdu.encode() == frame[1:]
+        assert pdu.x_encode() == frame[1:]
 
         if pdu.function_code == ILCFunction.WRITE_APPLICATION_STATES:
             pass

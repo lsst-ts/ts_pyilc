@@ -89,16 +89,30 @@ class ILCRequest(ModbusPDU):
     """Generic class providing empty encode function - for parameter-less
     requests."""
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return b""
+
+    def x_decode(self, data: bytes) -> None:
+        return
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 4
 
 
 class ILCResponse(ModbusPDU):
     """Generic class for processing empty response - for Requests calls when
     response is enough to signal sucessfull completion."""
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return b""
+
+    def x_decode(self, data: bytes) -> None:
+        return
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 4
 
 
 class ILCException(IntEnum):

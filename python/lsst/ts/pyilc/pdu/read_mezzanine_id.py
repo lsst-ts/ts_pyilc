@@ -35,7 +35,6 @@ class ReadMezzanineIDRequest(ILCRequest):
 
 class ReadMezzanineIDResponse(ModbusPDU):
     function_code = ILCFunction.READ_MEZZANINE_ID
-    rtu_frame_size = 9
 
     class FirmwareTypeCode(IntEnum):
         UNKNOWN = 0
@@ -52,7 +51,7 @@ class ReadMezzanineIDResponse(ModbusPDU):
         self.firmware_major_version: int = 0
         self.firmware_minor_version: int = 0
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         id_bytes = self.unique_id.to_bytes(6, byteorder="big", signed=False)
         return struct.pack(
             ">6s3B",
@@ -62,8 +61,12 @@ class ReadMezzanineIDResponse(ModbusPDU):
             self.firmware_minor_version,
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (id_bytes, self.firmware_type_code, self.firmware_major_version, self.firmware_minor_version) = (
             struct.unpack(">6s3B", data)
         )
         self.unique_id = int.from_bytes(id_bytes, byteorder="big", signed=False)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 13

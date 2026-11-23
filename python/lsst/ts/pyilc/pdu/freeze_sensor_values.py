@@ -42,15 +42,18 @@ class FreezeSensorValuesBroadcast(ModbusPDU):
     """
 
     function_code = ILCFunction.FREEZE_SENSOR_VALUES
-    rtu_frame_size = 1
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, communication_counter: int = 0):
         super().__init__(dev_id=dev_id)
 
         self.communication_counter = communication_counter
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">B", self.communication_counter)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.communication_counter = struct.unpack(">B", data)[0]
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 5

@@ -37,7 +37,6 @@ class ReadCalibrationDataResponse(ModbusPDU):
     """Reads calibration data."""
 
     function_code = ILCFunction.READ_CALIBRATION_DATA
-    rtu_frame_size = 96
 
     NUM_CALIBRATION = 4
 
@@ -52,7 +51,7 @@ class ReadCalibrationDataResponse(ModbusPDU):
         self.backup_sensor_offset = [m.nan] * self.NUM_CALIBRATION
         self.backup_sensor_sensitivity = [m.nan] * self.NUM_CALIBRATION
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(
             ">24f",
             *self.main_adc_calibration,
@@ -63,7 +62,7 @@ class ReadCalibrationDataResponse(ModbusPDU):
             *self.backup_sensor_sensitivity,
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         def __unpack_array(data: bytes, serie: int) -> list[float]:
             return list(
                 struct.unpack(
@@ -78,3 +77,7 @@ class ReadCalibrationDataResponse(ModbusPDU):
         self.backup_adc_calibration = __unpack_array(data, 3)
         self.backup_sensor_offset = __unpack_array(data, 4)
         self.backup_sensor_sensitivity = __unpack_array(data, 5)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 100

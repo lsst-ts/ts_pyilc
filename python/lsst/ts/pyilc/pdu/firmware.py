@@ -92,12 +92,12 @@ class WriteApplicationStatesRequest(ModbusPDU):
         data = struct.pack("<6H", self.data_crc, 0, self.start_address, 0, self.data_length, 0)
         return CRC(data).crc
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(
             ">4H", self.data_crc, self.start_address, self.data_length, self.compute_parameters_CRC()
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.data_crc, self.start_address, self.data_length, parameter_CRC) = struct.unpack(">4H", data)
 
         computed_parameters_CRC = self.compute_parameters_CRC()
@@ -128,7 +128,6 @@ class WriteApplicationPageRequest(ModbusPDU):
     """Write page of the newly flashed firmware."""
 
     function_code = ILCFunction.WRITE_APPLICATION_PAGE
-    rtu_byte_count_pos = 5
 
     length: int = 0
     data: bytes = b""
@@ -141,14 +140,19 @@ class WriteApplicationPageRequest(ModbusPDU):
         self.length = length
         self.data = data
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(f">HH{self.length}s", self.start_address, self.length, self.data)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.start_address, self.length) = struct.unpack(">2H", data[:4])
         self.data = data[4:]
 
         assert len(self.data) == self.length
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        assert len(data) > 5, "Write application page request must containt len bytes at position 3."
+        return data[3]
 
 
 class WriteApplicationPageResponse(ILCResponse):
@@ -168,18 +172,21 @@ class WriteVerifyApplicationResponse(ModbusPDU):
     """Data with application verification received from ILC."""
 
     function_code = ILCFunction.WRITE_VERIFY_APPLICATION
-    rtu_frame_size = 2
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, status: int = 0):
         super().__init__(dev_id=dev_id)
 
         self.status = status
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">H", self.status)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.status = struct.unpack(">H", data)[0]
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 6
 
 
 async def flash(

@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import argparse
 import asyncio
 import logging
 import os
@@ -38,6 +39,7 @@ from .pdu import (
     ForceActuatorForceDemandDAResponse,
     ForceActuatorForceDemandSARequest,
     ForceActuatorReadBoosterValveDCAGainsRequest,
+    ForceActuatorReadBoosterValveDCAGainsResponse,
     ForceActuatorSetBoosterValveDCAGainsRequest,
     ForceActuatorSetBoosterValveDCAGainsResponse,
     FreezeSensorValuesBroadcast,
@@ -108,7 +110,7 @@ if readline and hasattr(readline, "read_history_file"):
 class CLIContext:
     def __init__(self) -> None:
         self.client = None
-        self.address: int = 255
+        self.address: int = 18
         self.name: str = ""
         self.debug = False
 
@@ -124,6 +126,7 @@ class CLIContext:
         client.register(HardpointStepMotorMoveResponse)
         client.register(HardpointForceAndStatusResponse)
         client.register(SetILCTemporaryAddress)
+        client.register(ForceActuatorReadBoosterValveDCAGainsResponse)
         client.register(ForceActuatorSetBoosterValveDCAGainsResponse)
         client.register(WriteApplicationStatesResponse)
         client.register(EraseApplication)
@@ -156,9 +159,7 @@ class CLIContext:
         return await self.client.execute(False, request)
 
     def disconnect(self) -> None:
-        if self.client is not None:
-            self.client.close()
-            click.echo("Disconnected current connection.")
+        click.echo("Disconnected current connection.")
 
 
 pass_ctx = click.make_pass_decorator(CLIContext, ensure=True)
@@ -190,7 +191,10 @@ async def serial(ctx: CLIContext, port: str) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusSerialClient(port, baudrate=921600))
 
-    click.echo(f"Connected to {port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+    click.echo(
+        f"Connected to {port}, default ModBus address is {ctx.address}. "
+        "Type 'help' for commands, 'exit' or 'quit' to exit.\n"
+    )
 
 
 @cli.command()
@@ -202,7 +206,10 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusTcpClient(host, port=port))
 
-    click.echo(f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+    click.echo(
+        f"Connected to {host}:{port}, default ModBus address is {ctx.address}. "
+        "Type 'help' for commands, 'exit' or 'quit' to exit.\n"
+    )
 
 
 @cli.command()
@@ -211,6 +218,8 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
 def address(ctx: CLIContext, address: int) -> None:
     """Change default address."""
     ctx.address = address
+
+    click.echo(f"New default ModBus address is {ctx.address}")
 
 
 @cli.command()
@@ -427,7 +436,7 @@ async def force_actuator_read_booster_valve_dca_gains(ctx: CLIContext, address: 
 
 
 @cli.command()
-@click.argument("intel-hex", type=click.Path())
+@click.argument("intel-hex", type=click.Path(exists=True))
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> None:
@@ -802,9 +811,27 @@ async def read_monitor_sensors(ctx: CLIContext, address: None | int) -> None:
         click.echo(f"Temperature {i}: {monitor.temperature[i]:.2f} °C")
 
 
+async def process_command_line(ctx: CLIContext) -> None:
+    parser = argparse.ArgumentParser(description="Command line tool to communicate with ILCs.")
+    parser.add_argument("--serial", type=str, help="Connect to a serial port", default=None)
+    parser.add_argument("-d", action="store_true", help="Start in debug mode.")
+    parser.add_argument("--address", type=int, help="Default command address.")
+
+    args = parser.parse_args()
+    if args.d:
+        await cli.main(args=["debug"], standalone_mode=False, obj=ctx)
+    if args.serial is not None:
+        await cli.main(args=["serial", args.serial], standalone_mode=False, obj=ctx)
+    if args.address is not None:
+        await cli.main(args=["address", args.address], standalone_mode=False, obj=ctx)
+
+
 async def main() -> None:
     # Initialize our custom click context container
     ctx_obj = CLIContext()
+
+    # Process command line
+    await process_command_line(ctx_obj)
 
     while True:
         try:

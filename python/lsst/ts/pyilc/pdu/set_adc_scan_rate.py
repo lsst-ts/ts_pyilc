@@ -48,14 +48,17 @@ class ADCScanRate(IntEnum):
 
 class SetADCScanRate(ModbusPDU):
     function_code = ILCFunction.SET_ADC_SCANRATE
-    rtu_frame_size = 1
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, scan_rate: ADCScanRate = ADCScanRate.NO_CHANGE):
         super().__init__(dev_id=dev_id)
         self.scan_rate = scan_rate
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">B", self.scan_rate)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.scan_rate = ADCScanRate(data[0])
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 5

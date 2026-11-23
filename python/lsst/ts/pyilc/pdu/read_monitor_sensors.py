@@ -40,47 +40,56 @@ class ReadMonitorSensorsRequest(ILCRequest):
 
 class ReadMonitorTemperatureSensorsResponse(ModbusPDU):
     function_code = ILCFunction.READ_MONITOR_SENSORS
-    rtu_frame_size = 16
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
         self.temperature = [m.nan] * 4
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">4f", *self.temperature)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.temperature = list(struct.unpack(">4f", data))
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 20
 
 
 class ReadMonitorDisplacementSensorsResponse(ModbusPDU):
     function_code = ILCFunction.READ_MONITOR_SENSORS
-    rtu_frame_size = 48
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
         self.displacement = [m.nan] * 12
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">12f", *self.displacement)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.displacement = list(struct.unpack(">12f", data))
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 52
 
 
 class ReadMonitorInclinometerSensorsResponse(ModbusPDU):
     function_code = ILCFunction.READ_MONITOR_SENSORS
-    rtu_frame_size = 4
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
         self.elevation_angle = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">f", self.elevation_angle)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.elevation_angle = list(struct.unpack(">f", data))[0]
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 8

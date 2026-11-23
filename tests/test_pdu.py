@@ -154,14 +154,14 @@ class PduTestCase(unittest.TestCase):
 
         pdu = self.server.decode(frame)
 
-        assert pdu.encode() == frame[1:]
+        assert pdu.x_encode() == frame[1:]
 
         def __assert_array(actual: list[float], start: float) -> None:
             for a, b in zip(actual, np.arange(start, start + 0.1 * len(actual), 0.1)):
                 self.assertAlmostEqual(a, b, places=4)
 
         if pdu.function_code == ILCFunction.REPORT_SERVER_ID:
-            frame_size = pdu.calculateRtuFrameSize(b"\x01" + frame)
+            frame_size = pdu.x_calculateRtuFrameSize(b"\x00" + frame)
             if frame_size == 27:
                 assert pdu.unique_id == 0x010203040506
                 assert pdu.ilc_app_type == 0x07

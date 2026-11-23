@@ -33,14 +33,17 @@ class SetILCTemporaryAddress(ModbusPDU):
     payload."""
 
     function_code = ILCFunction.SET_TEMP_ILC_ADDR
-    rtu_frame_size = 1
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS, new_address: int = 1):
         super().__init__(dev_id=dev_id)
         self.address = new_address
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">B", self.address)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.address = int.from_bytes(data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 5

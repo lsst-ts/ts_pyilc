@@ -57,7 +57,6 @@ class ChangeILCMode(ModbusPDU):
     """
 
     function_code = ILCFunction.CHANGE_ILC_MODE
-    rtu_frame_size = 2
 
     def __init__(
         self,
@@ -87,8 +86,12 @@ class ChangeILCMode(ModbusPDU):
         else:
             self.mode = new_mode
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">H", self.mode)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.mode = struct.unpack(">H", data)[0]
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 6

@@ -35,7 +35,6 @@ class ForceActuatorReadBoosterValveDCAGainsRequest(ILCRequest):
 
 class ForceActuatorReadBoosterValveDCAGainsResponse(ModbusPDU):
     function_code = ILCFunction.FA_READ_BOOSTER_VALVE_DCA_GAINS
-    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
@@ -43,8 +42,12 @@ class ForceActuatorReadBoosterValveDCAGainsResponse(ModbusPDU):
         self.axial_gain = m.nan
         self.lateral_gain = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">ff", self.axial_gain, self.lateral_gain)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.axial_gain, self.lateral_gain) = struct.unpack(">ff", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 12

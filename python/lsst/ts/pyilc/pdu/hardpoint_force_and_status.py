@@ -39,7 +39,6 @@ class HardpointForceAndStatusResponse(ModbusPDU):
     """Report Hardpoint Cell Forces and Status."""
 
     function_code = ILCFunction.HP_FORCE_AND_STATUS
-    rtu_frame_size = 9
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
@@ -52,7 +51,7 @@ class HardpointForceAndStatusResponse(ModbusPDU):
         self.limit_switch_ccw: bool = False
         self.communication_counter: int = 0
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         status = (
             (self.ilc_fault)
             | (self.limit_switch_cw << 2)
@@ -61,10 +60,14 @@ class HardpointForceAndStatusResponse(ModbusPDU):
         )
         return struct.pack(">Bif", status, self.ssi_encoder_position, self.load_cell_force)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (status, self.ssi_encoder_position, self.load_cell_force) = struct.unpack(">Bif", data)
 
         self.ilc_fault = bool(status & 0x01)
         self.limit_switch_cw = bool(status & 0x04)
         self.limit_switch_ccw = bool(status & 0x08)
         self.communication_counter = (status >> 4) & 0x0F
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 13

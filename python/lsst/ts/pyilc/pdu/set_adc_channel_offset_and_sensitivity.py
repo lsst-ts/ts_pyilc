@@ -46,7 +46,6 @@ class SetADCChannelOffsetAndSensitivityRequest(ModbusPDU):
     """
 
     function_code = ILCFunction.SET_ADC_CHANNEL_OFFSET
-    rtu_frame_size = 9
 
     def __init__(
         self,
@@ -61,11 +60,15 @@ class SetADCChannelOffsetAndSensitivityRequest(ModbusPDU):
         self.offset = offset
         self.sensitivity = sensitivity
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">Bff", self.sensor_channel, self.offset, self.sensitivity)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.sensor_channel, self.offset, self.sensitivity) = struct.unpack(">Bff", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 13
 
 
 class SetADCChannelOffsetAndSensitivityResponse(ILCResponse):

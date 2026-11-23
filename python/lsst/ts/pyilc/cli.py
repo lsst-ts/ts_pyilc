@@ -21,6 +21,7 @@
 
 import argparse
 import asyncio
+import glob
 import logging
 import os
 
@@ -97,12 +98,6 @@ try:
 except ImportError:
     print("Readline not supported.")
     readline = None  # type: ignore
-
-if readline and hasattr(readline, "read_history_file"):
-    try:
-        readline.read_history_file(HISTORY_FILE)
-    except FileNotFoundError:
-        pass
 
 
 # We use a global context dictionary or a container to hold our active client,
@@ -830,6 +825,68 @@ async def main() -> None:
     # Initialize our custom click context container
     ctx_obj = CLIContext()
 
+    options: list[str] | None = None
+
+    if readline and hasattr(readline, "read_history_file"):
+        try:
+            readline.read_history_file(HISTORY_FILE)
+        except FileNotFoundError:
+            pass
+
+        def complete_path(text: str, path_type: click.Path) -> list[str]:
+            """Return matching filesystem paths respecting click.Path
+            settings."""
+            expanded = os.path.expanduser(text)
+            matches = []
+
+            for match in glob.glob(expanded + "*"):
+                is_dir = os.path.isdir(match)
+                if is_dir:
+                    # Always allow dirs so users can tab-complete into
+                    # subdirectories, or restrict with `path_type.dir_okay` if
+                    # you only want top-level files.
+                    matches.append(match + os.sep)
+                elif path_type.file_okay:
+                    matches.append(match)
+
+            return matches
+
+        def command_completer(text: str, state: int) -> str | None:
+            nonlocal options
+
+            if state == 0 or options is None:  # options is None silences len(options) on None
+                line = readline.get_line_buffer()
+                begidx = readline.get_begidx()
+
+                # Everything typed before the current word
+                before = line[:begidx].split()
+
+                # 1. Completing the command name (first token)
+                if not before:
+                    options = [cmd for cmd in cli.list_commands(ctx_obj) if cmd.startswith(text)]
+                else:
+                    # 2. Completing an argument for the given command
+                    cmd_name = before[0]
+                    cmd = cli.get_command(ctx_obj, cmd_name)
+                    if cmd is None:
+                        return None
+
+                    # Find positional arguments (click.Argument)
+                    args = [p for p in cmd.params if isinstance(p, click.Argument)]
+                    arg_index = len(before) - 1  # 0-based index of the current argument
+
+                    options = []
+                    if arg_index < len(args):
+                        param = args[arg_index]
+                        if isinstance(param.type, click.Path):
+                            options = complete_path(text, param.type)
+
+            return options[state] if state < len(options) else None
+
+        readline.set_completer(command_completer)
+        readline.set_completer_delims(" \t")
+        readline.parse_and_bind("tab: complete")
+
     # Process command line
     await process_command_line(ctx_obj)
 
@@ -863,7 +920,10 @@ async def main() -> None:
             e.show()
         except click.BadArgumentUsage as e:
             e.show()
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt:
+            click.echo("\n")
+            continue
+        except EOFError:
             click.echo("\nExiting...")
             break
         finally:

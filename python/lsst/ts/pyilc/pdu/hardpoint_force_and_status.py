@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class HardpointForceAndStatusRequest(ILCRequest):
@@ -35,6 +35,14 @@ class HardpointForceAndStatusRequest(ILCRequest):
     function_code = ILCFunction.HP_FORCE_AND_STATUS
 
 
+@pdu_stringify(
+    "ssi_encoder_position",
+    "ilc_fault",
+    "limit_switch_cw",
+    "limit_switch_ccw",
+    "communication_counter",
+    load_cell_force=".4f",
+)
 class HardpointForceAndStatusResponse(ModbusPDU):
     """Report Hardpoint Cell Forces and Status."""
 

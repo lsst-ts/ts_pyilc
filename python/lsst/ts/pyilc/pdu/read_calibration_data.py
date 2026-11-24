@@ -26,13 +26,21 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadCalibrationDataRequest(ILCRequest):
     function_code = ILCFunction.READ_CALIBRATION_DATA
 
 
+@pdu_stringify(
+    "main_adc_calibration",
+    "main_sensor_offset",
+    "main_sensor_sensitivity",
+    "backup_adc_calibration",
+    "backup_sensor_offset",
+    "backup_sensor_sensitivity",
+)
 class ReadCalibrationDataResponse(ModbusPDU):
     """Reads calibration data."""
 

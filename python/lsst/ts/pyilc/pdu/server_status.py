@@ -25,7 +25,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ServerStatusRequest(ILCRequest):
@@ -34,6 +34,7 @@ class ServerStatusRequest(ILCRequest):
     function_code = ILCFunction.REPORT_SERVER_STATUS
 
 
+@pdu_stringify("mode", status="x", faults="x")
 class ServerStatusResponse(ModbusPDU):
     """Report server status response."""
 

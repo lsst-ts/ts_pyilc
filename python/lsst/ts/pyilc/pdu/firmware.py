@@ -19,19 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-__all__ = ["flash"]
-
 import struct
-from collections.abc import Callable
 
-from intelhex import IntelHex
-from pymodbus.client import ModbusBaseClient
 from pymodbus.framer import FramerRTU
 from pymodbus.pdu import ModbusPDU
 from pymodbus.utilities import hexlify_packets
 
-from .change_ilc_mode import ChangeILCMode, ILCMode
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, ILCResponse
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, ILCResponse, pdu_stringify
 
 """
 This module handles communication during ILC firmware update. Beware this
@@ -168,6 +162,7 @@ class WriteVerifyApplicationRequest(ILCRequest):
     function_code = ILCFunction.WRITE_VERIFY_APPLICATION
 
 
+@pdu_stringify("status")
 class WriteVerifyApplicationResponse(ModbusPDU):
     """Data with application verification received from ILC."""
 
@@ -187,197 +182,3 @@ class WriteVerifyApplicationResponse(ModbusPDU):
     @classmethod
     def x_calculateRtuFrameSize(cls, data: bytes) -> int:
         return 6
-
-
-async def flash(
-    client: ModbusBaseClient,
-    dev_id: int,
-    intel_hex_file: IntelHex,
-    callback: None | Callable[[int, str], None] = None,
-) -> int:
-    """Flash ILC. Operates at the following steps:
-    1. Change ILC into bootloader (firmware update) mode.
-    2. Erase ILC application.
-    3. Write ILC application pages.
-    4. Write ILC application statistics.
-    5. Verify application.
-    6. Change ILC into standby mode.
-    7. Change ILC into disabled mode.
-
-    Parameters
-    ----------
-    client : `ModbusBaseClient`
-        Async Modbus client to ILC bus.
-    dev_id: `int`
-        ILC device address.
-    intel_hex_file : `IntelHex`
-        IntelHex class with data to load.
-    callback : `Callable[[int, str], None]`, optional
-        Optional callback. Called after an operation (ILC communication) is
-        performed. The int argument is a number 0-1000, steps progressed.  The
-        string is a string describing current phase of the operation progress.
-
-    Returns
-    -------
-    verify : `int`
-        Returned verification status.
-    """
-
-    # maximal progress - 100 %, so 1000 per thousand
-    MAX_PROGRESS = 1000
-
-    # cost of a simple FCU query
-    SIMPLE_STEP = 5
-
-    # number 0-1000 for the current phase
-    progress_phase = 0
-
-    async def change_state(new_mode: int) -> None:
-        status = await client.execute(False, ChangeILCMode(dev_id=dev_id))
-        if status.isError():
-            raise RuntimeError(f"ILC {dev_id} in error while transitioning to bootloader mode: {status}.")
-
-        if status.isError():
-            raise RuntimeError(f"Cannot query ILC {dev_id} mode: {status}.")
-
-        for attempts in range(4):
-            nonlocal progress_phase
-            progress_phase += SIMPLE_STEP
-            if callback:
-                callback(SIMPLE_STEP, f"configuring ({status.status})")
-
-            new_status = await client.execute(False, ChangeILCMode(dev_id, new_mode, status.mode))
-            if new_status.isError():
-                raise RuntimeError(
-                    f"ILC {dev_id} in error while transitioning to bootloader mode: {new_status}."
-                )
-
-            if new_status.mode == new_mode:
-                return
-
-            if new_status.mode == status.mode:
-                raise RuntimeError(f"Cannot transition ILC {dev_id} to {new_mode}")
-
-            status = new_status
-
-    # 1. Change ILC to bootloader state.
-    await change_state(ILCMode.BOOTLOADER)
-
-    progress_phase += SIMPLE_STEP
-    if callback:
-        callback(SIMPLE_STEP, "erasing app")
-
-    # 2. Command ILC to erase its firmware - made it available for writing.
-    erase = await client.execute(False, EraseApplication(dev_id=dev_id))
-    if erase.isError():
-        raise RuntimeError(f"Cannot erase ILC {dev_id}: {erase}.")
-
-    intel_hex_file.padding = 0xFF
-
-    # use only 0x0000 - 0xFFFF segments; hexfiles usually contains some 00 well
-    # over 0xFFFF, we will ignore those
-    segments = [s for s in intel_hex_file.segments() if s[1] < 0xFFFF]
-    start_address = segments[0][0]
-    end_address = segments[-1][1]
-
-    mem_address = start_address
-
-    # We are flashing 256 bytes chunks, but as every fourth byte is not
-    # written, only 256 - (256 / 4) bytes are actually transferred
-    PAGE_PADDED_LENGTH = 256
-    APPLICATION_PAGE_LENGTH = PAGE_PADDED_LENGTH - (PAGE_PADDED_LENGTH // 4)
-
-    # CRC is calculated from all data (including padding characters, which
-    # aren't send to ILC). From the first send byte to the latest valid byte -
-    # see length argument.
-    crc = CRC()
-
-    # progress step per byte written
-    progress_step = float(end_address - start_address) / (MAX_PROGRESS - progress_phase - (5 * SIMPLE_STEP))
-
-    # 3. Write ILC pages.
-    while mem_address < end_address:
-        data_start = max(segments[0][0], mem_address)
-        length = PAGE_PADDED_LENGTH
-
-        data = []
-
-        for i in range(PAGE_PADDED_LENGTH):
-            data.append(intel_hex_file[mem_address + i])
-
-        for i in range(3, PAGE_PADDED_LENGTH + 1, 4):
-            data[i] = 0x00
-
-        if len(segments) == 1:
-            length = min(segments[0][1] - data_start, PAGE_PADDED_LENGTH)
-
-        # Use all valid data for CRC calculation.
-        crc.append(data[:length])
-
-        # remove every 4th byte - that's how hexfile was compiled, as it is
-        # storing 3 bytes of allowable MCU opcodes into 4 bytes
-        del data[3::4]
-
-        progress_phase += int(progress_step * PAGE_PADDED_LENGTH)
-        if callback:
-            callback(
-                int(progress_step * PAGE_PADDED_LENGTH), f"writing {progress_phase // PAGE_PADDED_LENGTH}"
-            )
-
-        page = await client.execute(
-            False,
-            WriteApplicationPageRequest(
-                dev_id=dev_id, start_address=mem_address, length=APPLICATION_PAGE_LENGTH, data=bytes(data)
-            ),
-        )
-        if page.isError():
-            raise RuntimeError(
-                f"Cannot write page starting with address {mem_address} to ILC {dev_id}: {page}."
-            )
-        mem_address += PAGE_PADDED_LENGTH
-
-        # handle segments
-        if mem_address > segments[0][1]:
-            del segments[0]
-            if len(segments) and (mem_address) + 0xFF < segments[0][0]:
-                raise RuntimeError(
-                    f"Big firmware chunk is empty between address {mem_address} and {segments[0][0]}, "
-                    "aborting writing the file."
-                )
-
-    progress_phase += 5
-    if callback:
-        callback(5, "confirming")
-
-    # 4. Write application statistics. ILC verifies checksum, and if it
-    # matches, it is ready to copy new firmware from staging are into main
-    # memory and use it after rebooting.
-    stat = await client.execute(
-        False,
-        WriteApplicationStatesRequest(
-            dev_id=dev_id,
-            data_crc=crc.crc,
-            start_address=start_address,
-            data_length=end_address - start_address,
-        ),
-    )
-    if stat.isError():
-        raise RuntimeError(f"Cannot write end statistics to ILC {dev_id}: {stat}.")
-
-    progress_phase += 5
-    if callback:
-        callback(5, "quering status")
-
-    # 5. Ask ILC for verification status. This also copy the firmware from
-    # stagging memory buffer into main memory.
-    verify = await client.execute(False, WriteVerifyApplicationRequest(dev_id=dev_id))
-    if verify.isError():
-        raise RuntimeError(f"Cannot verify ILC {dev_id} write: {verify}.")
-
-    # 6. Transition ILC to DISABLED mode.
-    await change_state(ILCMode.DISABLED)
-
-    if callback:
-        callback(MAX_PROGRESS, "done")
-
-    return verify.status

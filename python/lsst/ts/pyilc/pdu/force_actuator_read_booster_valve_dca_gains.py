@@ -26,13 +26,14 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ForceActuatorReadBoosterValveDCAGainsRequest(ILCRequest):
     function_code = ILCFunction.FA_READ_BOOSTER_VALVE_DCA_GAINS
 
 
+@pdu_stringify("axial_gain", "lateral_gain")
 class ForceActuatorReadBoosterValveDCAGainsResponse(ModbusPDU):
     function_code = ILCFunction.FA_READ_BOOSTER_VALVE_DCA_GAINS
 

@@ -31,13 +31,14 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadMonitorSensorsRequest(ILCRequest):
     function_code = ILCFunction.READ_MONITOR_SENSORS
 
 
+@pdu_stringify("temperature")
 class ReadMonitorTemperatureSensorsResponse(ModbusPDU):
     function_code = ILCFunction.READ_MONITOR_SENSORS
 
@@ -57,6 +58,7 @@ class ReadMonitorTemperatureSensorsResponse(ModbusPDU):
         return 20
 
 
+@pdu_stringify("displacement")
 class ReadMonitorDisplacementSensorsResponse(ModbusPDU):
     function_code = ILCFunction.READ_MONITOR_SENSORS
 
@@ -76,6 +78,7 @@ class ReadMonitorDisplacementSensorsResponse(ModbusPDU):
         return 52
 
 
+@pdu_stringify("elevation_angle")
 class ReadMonitorInclinometerSensorsResponse(ModbusPDU):
     function_code = ILCFunction.READ_MONITOR_SENSORS
 

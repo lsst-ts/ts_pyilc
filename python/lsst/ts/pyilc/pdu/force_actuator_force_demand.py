@@ -31,7 +31,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
 class ForceActuatorForceDemandSARequest(ModbusPDU):
@@ -74,6 +74,7 @@ class ForceActuatorForceDemandSARequest(ModbusPDU):
         return 8
 
 
+@pdu_stringify("ilc_fault", "dca_fault", "communication_counter", load_cell_force=".4f")
 class ForceActuatorForceDemandSAResponse(ModbusPDU):
     function_code = ILCFunction.FA_FORCE_DEMAND
 
@@ -135,6 +136,9 @@ class ForceActuatorForceDemandDARequest(ModbusPDU):
         return 11
 
 
+@pdu_stringify(
+    "ilc_fault", "dca_fault", "communication_counter", axial_cell_force=".4f", lateral_cell_force=".4f"
+)
 class ForceActuatorForceDemandDAResponse(ModbusPDU):
     function_code = ILCFunction.FA_FORCE_DEMAND
 

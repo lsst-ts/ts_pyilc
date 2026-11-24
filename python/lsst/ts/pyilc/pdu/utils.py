@@ -22,6 +22,7 @@
 __all__ = ["ILCFunction", "ILCException", "ILCRequest", "ILCResponse", "DEFAULT_ILC_ADDRESS"]
 
 from enum import IntEnum
+from typing import Any, Callable
 
 from pymodbus.pdu import ModbusPDU
 
@@ -33,6 +34,51 @@ PNEUMATIC_BROADCAST_ADDRESS = 249
 
 DEFAULT_ILC_ADDRESS = 255
 """Address ILC uses in case TEDS is not connected."""
+
+
+def pdu_stringify[T](*fields: str, **formatted_fields: str) -> Callable[[type[T]], type[T]]:
+    """
+    Decorator creating a custom __str__, returning prinout of selected
+    attributes.
+
+    Usage
+    -----
+
+    @pdu_stringify("name", "my_value")
+    class Test:
+        def __init__(self):
+            self.name = "This is test"
+            self.my_value = 32.432
+
+    Parameters
+    ----------
+    fields: `list[str]`
+        List of decorator strings.
+    formatted_fields: `dict[str, str]
+        Formated fields.
+    """
+
+    def decorator(cls: type[T]) -> type[T]:
+        def stringify(self: Any) -> str:
+            parts: list[str] = []
+
+            # 1. Standard fields (uses repr formatting)
+            for field in fields:
+                parts.append(f"{field}={getattr(self, field, None)!r}")
+
+            # 2. Custom-formatted fields (uses format(val, spec))
+            for field, spec in formatted_fields.items():
+                val = getattr(self, field, None)
+                formatted_val = "None" if val is None else format(val, spec)
+                parts.append(f"{field}={formatted_val}")
+
+            return f"{cls.__name__}({', '.join(parts)})"
+
+        # Attach the method
+        setattr(cls, "__str__", stringify)
+        return cls
+
+    return decorator
 
 
 class ILCFunction(IntEnum):
@@ -85,6 +131,7 @@ class ILCFunction(IntEnum):
     READ_MONITOR_SENSORS = 0x54  # 84
 
 
+@pdu_stringify()
 class ILCRequest(ModbusPDU):
     """Generic class providing empty encode function - for parameter-less
     requests."""
@@ -100,6 +147,7 @@ class ILCRequest(ModbusPDU):
         return 4
 
 
+@pdu_stringify()
 class ILCResponse(ModbusPDU):
     """Generic class for processing empty response - for Requests calls when
     response is enough to signal sucessfull completion."""

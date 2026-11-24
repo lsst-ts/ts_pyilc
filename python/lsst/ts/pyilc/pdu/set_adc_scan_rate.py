@@ -26,7 +26,7 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
 class ADCScanRate(IntEnum):
@@ -46,6 +46,7 @@ class ADCScanRate(IntEnum):
     NO_CHANGE = 0xFF
 
 
+@pdu_stringify("scan_rate")
 class SetADCScanRate(ModbusPDU):
     function_code = ILCFunction.SET_ADC_SCANRATE
 

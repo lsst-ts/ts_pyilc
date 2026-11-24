@@ -19,15 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import os
 import unittest
 
-from intelhex import IntelHex
 from parameterized import parameterized
-from pymodbus.pdu import DecodePDU, ModbusPDU
-from pymodbus.utilities import hexlify_packets
+from pymodbus.pdu import DecodePDU
 
-from lsst.ts.pyilc.pdu import ChangeILCMode, ILCMode
 from lsst.ts.pyilc.pdu.firmware import (
     CRC,
     EraseApplication,
@@ -37,45 +33,10 @@ from lsst.ts.pyilc.pdu.firmware import (
     WriteApplicationStatesResponse,
     WriteVerifyApplicationRequest,
     WriteVerifyApplicationResponse,
-    flash,
 )
 from lsst.ts.pyilc.pdu.utils import ILCFunction
 
 server = DecodePDU(False)
-
-ilc_mode = int(ILCMode.STANDBY)
-
-
-class MockClient:
-    def __init__(self, output: str):
-        self.output_file = open(output)
-
-    async def execute(self, no_return: bool, request: ModbusPDU) -> ModbusPDU:
-        req = request.x_encode()
-        print("TestCase.execute:", str(request), request.function_code, hexlify_packets(req))
-        expected_out = self.output_file.readline()
-
-        if expected_out[:2] == "C>":
-            outs = [int(h, 16) for h in expected_out[3:].split(" ")][2:-2]
-            assert list(req) == outs
-
-        if request.function_code == ILCFunction.CHANGE_ILC_MODE:
-            global ilc_mode
-
-            if request.mode != 0xFFFF:
-                ilc_mode = request.mode
-
-            return ChangeILCMode(dev_id=request.dev_id, new_mode=ilc_mode)
-        elif request.function_code == ILCFunction.WRITE_APPLICATION_STATES:
-            return WriteApplicationStatesResponse(dev_id=request.dev_id)
-        elif request.function_code == ILCFunction.ERASE_APPLICATION:
-            return EraseApplication(dev_id=request.dev_id)
-        elif request.function_code == ILCFunction.WRITE_APPLICATION_PAGE:
-            return WriteApplicationPageResponse(dev_id=request.dev_id)
-        elif request.function_code == ILCFunction.WRITE_VERIFY_APPLICATION:
-            return WriteVerifyApplicationResponse(dev_id=request.dev_id, status=0)
-
-        raise RuntimeError(f"Cannot simulate request: {str(request)} {request.function_code}")
 
 
 class PduTestCase(unittest.IsolatedAsyncioTestCase):
@@ -148,17 +109,6 @@ class PduTestCase(unittest.IsolatedAsyncioTestCase):
         crc.append(b"\x06\x04\x40\x87\x84\x48\x02\x00\x3b\x60\x04\x14\xe0\x84\x1c")
 
         assert crc.crc == 0x371A
-
-    async def test_flashing(self) -> None:
-        def data_file(filename: str) -> str:
-            return os.path.join(os.path.dirname(os.path.realpath(__file__)), "data", filename)
-
-        hex_file = IntelHex(data_file("ILC-3.hex"))
-        test_client = MockClient(data_file("ILC-3.out"))
-
-        end_status = await flash(test_client, 0x11, hex_file)
-
-        assert end_status == 0
 
 
 if __name__ == "__main__":

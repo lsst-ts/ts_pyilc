@@ -26,13 +26,14 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadMezzanineLVDTRequest(ILCRequest):
     function_code = ILCFunction.HM_READ_MEZZANINE_LVDT
 
 
+@pdu_stringify(lvdt_1=".6f", lvdt_2=".6f")
 class ReadMezzanineLVDTResponse(ModbusPDU):
     function_code = ILCFunction.HM_READ_MEZZANINE_LVDT
 

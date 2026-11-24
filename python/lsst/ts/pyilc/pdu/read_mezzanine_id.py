@@ -26,13 +26,14 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadMezzanineIDRequest(ILCRequest):
     function_code = ILCFunction.READ_MEZZANINE_ID
 
 
+@pdu_stringify("unique_id", "firmware_type_code", "firmware_major_version", "firmware_minor_version")
 class ReadMezzanineIDResponse(ModbusPDU):
     function_code = ILCFunction.READ_MEZZANINE_ID
 

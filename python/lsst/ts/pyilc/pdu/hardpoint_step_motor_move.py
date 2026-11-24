@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
 class HardpointStepMotorMoveRequest(ModbusPDU):
@@ -49,6 +49,7 @@ class HardpointStepMotorMoveRequest(ModbusPDU):
         return 5
 
 
+@pdu_stringify("ssi_encoder_position", load_cell_force=".4f")
 class HardpointStepMotorMoveResponse(ModbusPDU):
     """Report Hardpoint Forces and Encoder Position."""
 

@@ -25,9 +25,10 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
+@pdu_stringify("address")
 class SetILCTemporaryAddress(ModbusPDU):
     """Set ILC temporary address. Both Request and Response have the same
     payload."""

@@ -26,13 +26,14 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadMezzaninePressureRequest(ILCRequest):
     function_code = ILCFunction.READ_MEZZANINE_PRESSURE
 
 
+@pdu_stringify(axial_push=".4f", axial_pull=".4f", lateral_pull=".4f", lateral_push=".4f")
 class ReadMezzaninePressureResponse(ModbusPDU):
     """Reads pressure reported by mezzanine board."""
 

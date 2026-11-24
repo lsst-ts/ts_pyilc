@@ -26,7 +26,7 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
 class ILCMode(IntEnum):
@@ -40,6 +40,7 @@ class ILCMode(IntEnum):
     QUERY = 0xFFFF
 
 
+@pdu_stringify("mode")
 class ChangeILCMode(ModbusPDU):
     """Both ILC change mode request and response. The payload is the same, so
     one class can work for both request and response.
@@ -50,10 +51,10 @@ class ChangeILCMode(ModbusPDU):
         ILC address.
     new_mode : `int`, optional
         Desired mode. Construct command to transition to that mode if
-        current_mode is not provided. Note that the default, 0xFFFF, is a mode
-        query - function will return current system state.
+        current_mode is not provided. Note that the default, ILCMode.QUERY, is
+        a mode query - function will return current system state.
     current_mode : `int`, optional
-        If provided, construct ILCMode query to reach the given state.
+        If provided, construct ILCMode request to reach the given state.
     """
 
     function_code = ILCFunction.CHANGE_ILC_MODE

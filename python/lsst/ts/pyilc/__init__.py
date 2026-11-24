@@ -24,5 +24,7 @@ try:
 except ImportError:
     __version__ = "?"
 
-from .pdu import ServerIDRequest, ServerIDResponse
+from .ilc_modes import ILCModes
 from .ilc_faults import ILCFaults
+from .pdu import ServerIDRequest, ServerIDResponse
+from .script import Script

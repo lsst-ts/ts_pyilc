@@ -25,7 +25,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import ILCFunction, ILCRequest
+from .utils import ILCFunction, ILCRequest, pdu_stringify
 
 
 class ServerIDRequest(ILCRequest):
@@ -34,6 +34,16 @@ class ServerIDRequest(ILCRequest):
     function_code = ILCFunction.REPORT_SERVER_ID
 
 
+@pdu_stringify(
+    "ilc_app_type",
+    "network_node_type",
+    "major_rev",
+    "minor_rev",
+    "firmware_name",
+    unique_id="x",
+    ilc_selected_options="x",
+    network_node_options="x",
+)
 class ServerIDResponse(ModbusPDU):
     """Report Server ID response."""
 

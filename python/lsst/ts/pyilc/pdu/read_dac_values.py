@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadDACValuesRequest(ILCRequest):
@@ -35,6 +35,7 @@ class ReadDACValuesRequest(ILCRequest):
     function_code = ILCFunction.READ_DAC_VALUES
 
 
+@pdu_stringify(dac1_axial_push=".4f", dac2_axial_pull=".4f", dac3_lateral_push=".4f", dac4_lateral_pull=".4f")
 class ReadDACValuesResponse(ModbusPDU):
     function_code = ILCFunction.READ_DAC_VALUES
 

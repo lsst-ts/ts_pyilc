@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
 class ThermalDemandRequest(ModbusPDU):
@@ -61,6 +61,16 @@ class ThermalDemandRequest(ModbusPDU):
         return 6
 
 
+@pdu_stringify(
+    "ilc_fault",
+    "heater_disabled",
+    "breaker_1",
+    "breaker_2",
+    "communication_counter",
+    differential_temperature=".4f",
+    fan_rpm=".4f",
+    absolute_temperature=".4f",
+)
 class ThermalDemandResponse(ModbusPDU):
     function_code = ILCFunction.TS_DEMAND
 

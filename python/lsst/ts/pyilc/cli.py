@@ -744,6 +744,7 @@ async def run_script(ctx: CLIContext, track: bool, script: click.Path, address: 
 async def process_command_line(ctx: CLIContext) -> None:
     parser = argparse.ArgumentParser(description="Command line tool to communicate with ILCs.")
     parser.add_argument("--serial", type=str, help="Connect to a serial port", default=None)
+    parser.add_argument("--tcp", type=str, help="Connect to TCP/IP. address:port", default=None)
     parser.add_argument("-d", action="store_true", help="Start in debug mode.")
     parser.add_argument("--address", type=int, help="Default command address.")
     parser.add_argument("--script", type=click.Path(exists=True), help="Execute ILC script.", default=None)
@@ -753,12 +754,24 @@ async def process_command_line(ctx: CLIContext) -> None:
     async def __run(args: list[str]) -> None:
         await cli.main(args=args, standalone_mode=False, obj=ctx)
 
+    if args.serial is not None and args.tcp is not None:
+        click.echo(
+            click.style(
+                f"Cannot connect to both serial port {args.serial} and TCP/IP {args.tcp}. Please pass only "
+                "either --serial or --tcp, not both options.",
+                fg="red",
+            )
+        )
+        sys.exit(1)
+
     if args.d:
         await __run(["debug"])
     if args.serial is not None:
         await __run(["serial", args.serial])
+    if args.tcp is not None:
+        await __run(["tcp", *args.tcp.split(":")])
     if args.address is not None:
-        await __run(["address", args.address])
+        await __run(["address", str(args.address)])
     if args.script is not None:
         await __run(["run", args.script])
         sys.exit(0)

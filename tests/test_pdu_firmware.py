@@ -37,41 +37,57 @@ from lsst.ts.pyilc.pdu.firmware import (
 from lsst.ts.pyilc.pdu.utils import ILCFunction
 
 server = DecodePDU(False)
+client = DecodePDU(False)
 
 
-class PduTestCase(unittest.IsolatedAsyncioTestCase):
-    server = DecodePDU(False)
-
-    requests = [(0x64, b"\x64")]
-
-    responses = [
-        (
-            0x64,
-            b"\x64",
-        ),
-        (
-            0x65,
-            b"\x65",
-        ),
-        (
-            0x66,
-            b"\x66",
-        ),
-        (
-            0x67,
-            b"\x67\x42\x43",
-        ),
+class PduTestCase(unittest.TestCase):
+    requests = [
+        b"\x64\xed\x6e\x2c\x00\x70\x38\x43\x80",
+        b"\x65",
+        b"\x66\x8d\x00\x00\xc0\x00\x80\xeb\x10\x07\x98\x6e\xff\x07\x00\x00\xe0\x20\x00\x3a\x30\xc3\xb3\x8b\xff\x07\x00\x40\xeb\x00\x4f\x78\x06\x00\x37\x1e\x84\xfb\xa9\xff\x07\x61\xbf\x20\x81\x00\x44\x80\x48\x78\x1e\x4f\xe8\x1e\x40\x78\xe7\x4f\x50\xf7\xff\x36\xd9\xff\x07\x00\x00\xe0\x03\x00\x3a\x00\x00\xeb\x10\x07\x98\x0c\x00\x37\x00\x40\xeb\x00\x4f\x78\x06\x00\x37\x9e\x80\xfb\x60\xbf\x20\x00\x80\x40\xf1\xc3\xb3\x01\x48\x78\x1e\x4f\xe8\x1e\x40\x78\xe7\x4f\x50\xf7\xff\x36\x1e\x00\x90\x4f\x04\x78\x00\x80\xfa\x00\x00\x06\x08\x00\xfa\x10\x07\x98\x21\x07\x98\x32\x07\x98\x1e\x01\x90\xae\x01\x90\x44\x18\xdd\xcc\x10\xde\x81\x00\x70\x44\x10\xdd\x00\x01\xbe\x00\x00\x20\x11\x0e\x20\x80\xea\x07\x00\x00\x78\x00\x0f\xe9\x9e\x00\x78\xc1\x11\x88\xbe\x00\x90\x00\x80\x28\x01\x00\x70\x80\x11\x88\x00\x40\x22",
+        b"\x67",
     ]
 
-    @parameterized.expand(responses)
-    def test_client_decode(self, code: int, frame: bytes) -> None:
-        """Tests PDUs decode and encode methods."""
-        server.add_pdu(WriteApplicationStatesRequest, WriteApplicationStatesResponse)
-        server.add_pdu(EraseApplication, EraseApplication)
-        server.add_pdu(WriteApplicationPageRequest, WriteApplicationPageResponse)
-        server.add_pdu(WriteVerifyApplicationRequest, WriteVerifyApplicationResponse)
+    responses = [
+        b"\x64",
+        b"\x65",
+        b"\x66",
+        b"\x67\x42\x43",
+    ]
 
-        pdu = self.server.decode(frame)
+    def setUp(self) -> None:
+        print("setUp")
+
+    @parameterized.expand(requests)
+    def test_server_decode(self, frame: bytes) -> None:
+        """Tests PDUs decode and encode methods on server side."""
+        server.add_pdu(WriteApplicationStatesResponse, WriteApplicationStatesRequest)
+        server.add_pdu(EraseApplication, EraseApplication)
+        server.add_pdu(WriteApplicationPageResponse, WriteApplicationPageRequest)
+        server.add_pdu(WriteVerifyApplicationResponse, WriteVerifyApplicationRequest)
+
+        pdu = server.decode(frame)
+
+        assert pdu.x_encode() == frame[1:]
+
+        if pdu.function_code == ILCFunction.WRITE_APPLICATION_STATES:
+            pass
+        elif pdu.function_code == ILCFunction.ERASE_APPLICATION:
+            pass
+        elif pdu.function_code == ILCFunction.WRITE_APPLICATION_PAGE:
+            assert pdu.start_address == 0x8D00
+            assert pdu.length == 0xC0
+            assert pdu.data == frame[5:]
+
+    @parameterized.expand(responses)
+    def test_client_decode(self, frame: bytes) -> None:
+        """Tests PDUs decode and encode methods on client side."""
+        client.add_pdu(WriteApplicationStatesRequest, WriteApplicationStatesResponse)
+        client.add_pdu(EraseApplication, EraseApplication)
+        client.add_pdu(WriteApplicationPageRequest, WriteApplicationPageResponse)
+        client.add_pdu(WriteVerifyApplicationRequest, WriteVerifyApplicationResponse)
+
+        pdu = client.decode(frame)
 
         assert pdu.x_encode() == frame[1:]
 

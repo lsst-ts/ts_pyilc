@@ -54,7 +54,7 @@ class ThermalDemandRequest(ModbusPDU):
         return struct.pack(">BB", self.heater_pwm, self.fan_pwm)
 
     def x_decode(self, data: bytes) -> None:
-        (self.heater, self.fan_pwm) = struct.unpack(">BB", data)
+        (self.heater_pwm, self.fan_pwm) = struct.unpack(">BB", data)
 
     @classmethod
     def x_calculateRtuFrameSize(cls, data: bytes) -> int:
@@ -75,7 +75,7 @@ class ThermalDemandResponse(ModbusPDU):
     function_code = ILCFunction.TS_DEMAND
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
-        super().__init__()
+        super().__init__(dev_id=dev_id)
 
         self.ilc_fault: bool = False
         self.heater_disabled: bool = False

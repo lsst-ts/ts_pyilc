@@ -123,6 +123,7 @@ class WriteApplicationPageRequest(ModbusPDU):
 
     function_code = ILCFunction.WRITE_APPLICATION_PAGE
 
+    start_address: int = 0
     length: int = 0
     data: bytes = b""
 
@@ -145,8 +146,8 @@ class WriteApplicationPageRequest(ModbusPDU):
 
     @classmethod
     def x_calculateRtuFrameSize(cls, data: bytes) -> int:
-        assert len(data) > 5, "Write application page request must containt len bytes at position 3."
-        return data[3]
+        assert len(data) > 7, "Write application page request must contain len bytes at position 3."
+        return struct.unpack(">H", data[4:5])[0] + 8
 
 
 class WriteApplicationPageResponse(ILCResponse):

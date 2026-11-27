@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["ReadCalibrationDataRequest", "ReadCalibrationDataResponse"]
 
@@ -26,18 +26,25 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadCalibrationDataRequest(ILCRequest):
     function_code = ILCFunction.READ_CALIBRATION_DATA
 
 
+@pdu_stringify(
+    "main_adc_calibration",
+    "main_sensor_offset",
+    "main_sensor_sensitivity",
+    "backup_adc_calibration",
+    "backup_sensor_offset",
+    "backup_sensor_sensitivity",
+)
 class ReadCalibrationDataResponse(ModbusPDU):
     """Reads calibration data."""
 
     function_code = ILCFunction.READ_CALIBRATION_DATA
-    rtu_frame_size = 96
 
     NUM_CALIBRATION = 4
 
@@ -52,7 +59,7 @@ class ReadCalibrationDataResponse(ModbusPDU):
         self.backup_sensor_offset = [m.nan] * self.NUM_CALIBRATION
         self.backup_sensor_sensitivity = [m.nan] * self.NUM_CALIBRATION
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(
             ">24f",
             *self.main_adc_calibration,
@@ -63,7 +70,7 @@ class ReadCalibrationDataResponse(ModbusPDU):
             *self.backup_sensor_sensitivity,
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         def __unpack_array(data: bytes, serie: int) -> list[float]:
             return list(
                 struct.unpack(
@@ -78,3 +85,7 @@ class ReadCalibrationDataResponse(ModbusPDU):
         self.backup_adc_calibration = __unpack_array(data, 3)
         self.backup_sensor_offset = __unpack_array(data, 4)
         self.backup_sensor_sensitivity = __unpack_array(data, 5)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 100

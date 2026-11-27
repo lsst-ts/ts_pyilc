@@ -2,8 +2,10 @@ black: true
 check-xml: false
 check-yaml: false
 clang-format: false
+insert-license: true
 flake8: true
 format-xmllint: false
 isort: true
 mypy: true
 ruff: true
+towncrier: true

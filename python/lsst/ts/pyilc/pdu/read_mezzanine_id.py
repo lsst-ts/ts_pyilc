@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["ReadMezzanineIDRequest", "ReadMezzanineIDResponse"]
 
@@ -26,16 +26,16 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadMezzanineIDRequest(ILCRequest):
     function_code = ILCFunction.READ_MEZZANINE_ID
 
 
+@pdu_stringify("unique_id", "firmware_type_code", "firmware_major_version", "firmware_minor_version")
 class ReadMezzanineIDResponse(ModbusPDU):
     function_code = ILCFunction.READ_MEZZANINE_ID
-    rtu_frame_size = 9
 
     class FirmwareTypeCode(IntEnum):
         UNKNOWN = 0
@@ -52,7 +52,7 @@ class ReadMezzanineIDResponse(ModbusPDU):
         self.firmware_major_version: int = 0
         self.firmware_minor_version: int = 0
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         id_bytes = self.unique_id.to_bytes(6, byteorder="big", signed=False)
         return struct.pack(
             ">6s3B",
@@ -62,8 +62,12 @@ class ReadMezzanineIDResponse(ModbusPDU):
             self.firmware_minor_version,
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (id_bytes, self.firmware_type_code, self.firmware_major_version, self.firmware_minor_version) = (
             struct.unpack(">6s3B", data)
         )
         self.unique_id = int.from_bytes(id_bytes, byteorder="big", signed=False)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 13

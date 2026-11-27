@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["SetADCChannelOffsetAndSensitivityRequest", "SetADCChannelOffsetAndSensitivityResponse"]
 
@@ -46,7 +46,6 @@ class SetADCChannelOffsetAndSensitivityRequest(ModbusPDU):
     """
 
     function_code = ILCFunction.SET_ADC_CHANNEL_OFFSET
-    rtu_frame_size = 9
 
     def __init__(
         self,
@@ -61,11 +60,15 @@ class SetADCChannelOffsetAndSensitivityRequest(ModbusPDU):
         self.offset = offset
         self.sensitivity = sensitivity
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">Bff", self.sensor_channel, self.offset, self.sensitivity)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.sensor_channel, self.offset, self.sensitivity) = struct.unpack(">Bff", data)
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 13
 
 
 class SetADCChannelOffsetAndSensitivityResponse(ILCResponse):

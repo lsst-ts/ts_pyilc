@@ -12,7 +12,7 @@ dynamic = [ "version" ]
 dependencies = [
   "asyncclick",
   "intelhex",
-  "pymodbus>=3.12.1",
+  "pymodbus==3.16.2",
   "pyserial-asyncio",
 ]
 

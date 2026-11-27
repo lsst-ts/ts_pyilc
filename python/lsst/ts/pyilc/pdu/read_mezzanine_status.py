@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["ReadMezzanineStatusRequest", "ReadMezzanineStatusResponse"]
 
@@ -25,27 +25,31 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadMezzanineStatusRequest(ILCRequest):
     function_code = ILCFunction.READ_MEZZANINE_STATUS
 
 
+@pdu_stringify("status")
 class ReadMezzanineStatusResponse(ModbusPDU):
     function_code = ILCFunction.READ_MEZZANINE_STATUS
-    rtu_frame_size = 2
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id=dev_id)
 
         self.status: int = 0
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">H", self.status)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.status = struct.unpack(">H", data)[0]
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 6
 
     def status_bits(self) -> dict[str, str]:
         def __ok_fault(status: int) -> str:

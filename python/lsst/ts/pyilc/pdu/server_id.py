@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["ServerIDRequest", "ServerIDResponse"]
 
@@ -25,7 +25,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import ILCFunction, ILCRequest
+from .utils import ILCFunction, ILCRequest, pdu_stringify
 
 
 class ServerIDRequest(ILCRequest):
@@ -34,11 +34,20 @@ class ServerIDRequest(ILCRequest):
     function_code = ILCFunction.REPORT_SERVER_ID
 
 
+@pdu_stringify(
+    "ilc_app_type",
+    "network_node_type",
+    "major_rev",
+    "minor_rev",
+    "firmware_name",
+    unique_id="x",
+    ilc_selected_options="x",
+    network_node_options="x",
+)
 class ServerIDResponse(ModbusPDU):
     """Report Server ID response."""
 
     function_code = ILCFunction.REPORT_SERVER_ID
-    rtu_byte_count_pos = 2
 
     unique_id: int = 0
     ilc_app_type: int = 0
@@ -49,7 +58,7 @@ class ServerIDResponse(ModbusPDU):
     minor_rev: int = 0
     firmware_name: str = ""
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         id_bytes = self.unique_id.to_bytes(6, byteorder="big", signed=False)
         fn_len = len(self.firmware_name)
 
@@ -66,12 +75,12 @@ class ServerIDResponse(ModbusPDU):
             self.firmware_name.encode(),
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         fn_len = data[0]
 
         if fn_len < 12:
             raise RuntimeError(
-                f"Invalid lenght in Server ID packed - expected at least 12, received {fn_len}"
+                f"Invalid length in Server ID packed - expected at least 12, received {fn_len}"
             )
 
         (
@@ -87,3 +96,7 @@ class ServerIDResponse(ModbusPDU):
 
         self.unique_id = int.from_bytes(id_bytes, byteorder="big", signed=False)
         self.firmware_name = firmware_name.decode()
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return data[2] + 5

@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["ReadDACValuesRequest", "ReadDACValuesResponse"]
 
@@ -26,7 +26,7 @@ import struct
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, ILCRequest, pdu_stringify
 
 
 class ReadDACValuesRequest(ILCRequest):
@@ -35,9 +35,9 @@ class ReadDACValuesRequest(ILCRequest):
     function_code = ILCFunction.READ_DAC_VALUES
 
 
+@pdu_stringify(dac1_axial_push=".4f", dac2_axial_pull=".4f", dac3_lateral_push=".4f", dac4_lateral_pull=".4f")
 class ReadDACValuesResponse(ModbusPDU):
     function_code = ILCFunction.READ_DAC_VALUES
-    rtu_frame_size = 8
 
     def __init__(self, dev_id: int = DEFAULT_ILC_ADDRESS):
         super().__init__(dev_id)
@@ -47,12 +47,16 @@ class ReadDACValuesResponse(ModbusPDU):
         self.dac3_lateral_push = m.nan
         self.dac4_lateral_pull = m.nan
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(
             ">4H", self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull
         )
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         (self.dac1_axial_push, self.dac2_axial_pull, self.dac3_lateral_push, self.dac4_lateral_pull) = (
             struct.unpack(">4H", data)
         )
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 12

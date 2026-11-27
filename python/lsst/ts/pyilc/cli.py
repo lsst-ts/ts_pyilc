@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,79 +13,59 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import argparse
 import asyncio
+import glob
 import logging
 import os
+import pathlib
+import sys
 
 import asyncclick as click
 from intelhex import IntelHex
 from pymodbus.client import AsyncModbusSerialClient, AsyncModbusTcpClient
 from pymodbus.exceptions import ModbusIOException
-from pymodbus.pdu import ModbusPDU
 
-from .pdu import (
+from lsst.ts.pyilc.pdu import (
     ADCScanRate,
     ChangeILCMode,
-    ForceActuatorForceAndStatusDAResponse,
+    Context,
     ForceActuatorForceAndStatusRequest,
     ForceActuatorForceDemandDARequest,
-    ForceActuatorForceDemandDAResponse,
     ForceActuatorForceDemandSARequest,
     ForceActuatorReadBoosterValveDCAGainsRequest,
     ForceActuatorSetBoosterValveDCAGainsRequest,
-    ForceActuatorSetBoosterValveDCAGainsResponse,
     FreezeSensorValuesBroadcast,
     HardpointForceAndStatusRequest,
-    HardpointForceAndStatusResponse,
     HardpointStepMotorMoveRequest,
-    HardpointStepMotorMoveResponse,
     ILCMode,
     ReadCalibrationDataRequest,
-    ReadCalibrationDataResponse,
     ReadDACValuesRequest,
-    ReadDACValuesResponse,
     ReadMezzanineIDRequest,
-    ReadMezzanineIDResponse,
     ReadMezzanineLVDTRequest,
-    ReadMezzanineLVDTResponse,
     ReadMezzaninePressureRequest,
-    ReadMezzaninePressureResponse,
     ReadMezzanineStatusRequest,
-    ReadMezzanineStatusResponse,
     ReadMonitorSensorsRequest,
-    ReadMonitorTemperatureSensorsResponse,
     ReadReheaterGainsRequest,
-    ReadReheaterGainsResponse,
     Reset,
     ServerIDRequest,
-    ServerIDResponse,
     ServerStatusRequest,
-    ServerStatusResponse,
     SetADCChannelOffsetAndSensitivityRequest,
-    SetADCChannelOffsetAndSensitivityResponse,
     SetADCScanRate,
     SetILCTemporaryAddress,
     SetReheaterGainsRequest,
-    SetReheaterGainsResponse,
     ThermalDemandRequest,
-    ThermalDemandResponse,
     ThermalStatusRequest,
-    ThermalStatusResponse,
 )
-from .pdu.firmware import (
-    EraseApplication,
-    WriteApplicationPageResponse,
-    WriteApplicationStatesResponse,
-    WriteVerifyApplicationResponse,
-)
-from .pdu.firmware import flash as flash_ilc
-from .pdu.utils import ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS
+from lsst.ts.pyilc.pdu.utils import ELECTROMECHANICAL_BROADCAST_ADDRESS, PNEUMATIC_BROADCAST_ADDRESS
+
+from .script import Script
 
 # Setup history file tracking via standard readline
 HISTORY_FILE = os.path.expanduser("~/.ilccli_history")
@@ -96,69 +76,17 @@ except ImportError:
     print("Readline not supported.")
     readline = None  # type: ignore
 
-if readline and hasattr(readline, "read_history_file"):
-    try:
-        readline.read_history_file(HISTORY_FILE)
-    except FileNotFoundError:
-        pass
 
-
-# We use a global context dictionary or a container to hold our active client,
-# default address and connection name.
-class CLIContext:
+class CLIContext(Context):
     def __init__(self) -> None:
-        self.client = None
-        self.address: int = 255
-        self.name: str = ""
+        super().__init__()
+
+        self.address: int = 18
         self.debug = False
 
     def dev_id(self, dev_id: int | None) -> int:
         """Returns either provided address or default address."""
         return self.address if dev_id is None else dev_id
-
-    async def connect(self, client: AsyncModbusSerialClient | AsyncModbusTcpClient) -> None:
-        await client.connect()
-        client.register(ServerIDResponse)
-        client.register(ServerStatusResponse)
-        client.register(ChangeILCMode)
-        client.register(HardpointStepMotorMoveResponse)
-        client.register(HardpointForceAndStatusResponse)
-        client.register(SetILCTemporaryAddress)
-        client.register(ForceActuatorSetBoosterValveDCAGainsResponse)
-        client.register(WriteApplicationStatesResponse)
-        client.register(EraseApplication)
-        client.register(WriteApplicationPageResponse)
-        client.register(WriteVerifyApplicationResponse)
-        client.register(ForceActuatorForceDemandDAResponse)
-        client.register(ForceActuatorForceAndStatusDAResponse)
-        client.register(SetADCScanRate)
-        client.register(SetADCChannelOffsetAndSensitivityResponse)
-        client.register(ReadDACValuesResponse)
-        client.register(ThermalDemandResponse)
-        client.register(ThermalStatusResponse)
-        client.register(SetReheaterGainsResponse)
-        client.register(ReadReheaterGainsResponse)
-        client.register(Reset)
-        client.register(ReadCalibrationDataResponse)
-        client.register(ReadMezzaninePressureResponse)
-        client.register(ReadMezzanineIDResponse)
-        client.register(ReadMezzanineStatusResponse)
-        client.register(ReadMezzanineLVDTResponse)
-        client.register(ReadMonitorTemperatureSensorsResponse)
-
-        self.client = client
-        self.name = str(client)
-
-    async def execute(self, request: ModbusPDU) -> ModbusPDU:
-        if self.client is None:
-            raise RuntimeError("Client not connected. Use 'serial' or 'tcp' commands to connect to client.")
-
-        return await self.client.execute(False, request)
-
-    def disconnect(self) -> None:
-        if self.client is not None:
-            self.client.close()
-            click.echo("Disconnected current connection.")
 
 
 pass_ctx = click.make_pass_decorator(CLIContext, ensure=True)
@@ -174,12 +102,15 @@ def cli() -> None:
 
 
 @cli.command()
+@click.argument("on", type=bool, default=True)
 @pass_ctx
-def debug(ctx: CLIContext) -> None:
+def debug(ctx: CLIContext, on: bool) -> None:
     """Log every command."""
-    ctx.debug = True
+    ctx.debug = on
     log = logging.getLogger("pymodbus")
-    log.setLevel(logging.DEBUG)
+    log.setLevel(logging.DEBUG if on else logging.INFO)
+
+    click.echo(f"Turning debug {'on' if on else 'off'}.")
 
 
 @cli.command()
@@ -188,9 +119,13 @@ def debug(ctx: CLIContext) -> None:
 async def serial(ctx: CLIContext, port: str) -> None:
     """Open connection to serial port."""
     ctx.disconnect()
+    click.echo("Disconnected.")
     await ctx.connect(AsyncModbusSerialClient(port, baudrate=921600))
 
-    click.echo(f"Connected to {port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+    click.echo(
+        f"Connected to {port}, default ModBus address is {ctx.address}. "
+        "Type 'help' for commands, 'exit' or 'quit' to exit.\n"
+    )
 
 
 @cli.command()
@@ -202,15 +137,22 @@ async def tcp(ctx: CLIContext, host: str, port: int) -> None:
     ctx.disconnect()
     await ctx.connect(AsyncModbusTcpClient(host, port=port))
 
-    click.echo(f"Connected to {host}:{port}. Type 'help' for commands, 'exit' or 'quit' to exit.\n")
+    click.echo(
+        f"Connected to {host}:{port}, default ModBus address is {ctx.address}. "
+        "Type 'help' for commands, 'exit' or 'quit' to exit.\n"
+    )
 
 
 @cli.command()
-@click.argument("address", type=int)
+@click.argument("address", type=int, default=None)
 @pass_ctx
-def address(ctx: CLIContext, address: int) -> None:
-    """Change default address."""
-    ctx.address = address
+def address(ctx: CLIContext, address: int | None) -> None:
+    """Report or change default address."""
+    if address is None:
+        click.echo(f"Current default Modbus address is {ctx.address}.")
+    else:
+        ctx.address = address
+        click.echo(f"New default Modbus address is {ctx.address}.")
 
 
 @cli.command()
@@ -266,37 +208,11 @@ async def change_ilc_mode(ctx: CLIContext, mode: int, address: None | int) -> No
     click.echo(f"Mode: {ilc_mode.mode}")
 
 
-async def __state_transition(ctx: CLIContext, dev_id: int, target_mode: int) -> None:
-    current_mode = await ctx.execute(ChangeILCMode(dev_id=dev_id))
-    if current_mode.isError():
-        click.echo("Error: {current_mode}")
-        return
-
+async def __state_transition(ctx: CLIContext, dev_id: int, target_mode: ILCMode) -> None:
     with click.progressbar(length=4, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
-        if current_mode.mode == target_mode:
-            bar.update(4, f"New ILC {dev_id} mode: {ILCMode(current_mode.mode).name}")
-            return
-        next_mode = await ctx.execute(
-            ChangeILCMode(dev_id=dev_id, new_mode=target_mode, current_mode=current_mode.mode)
+        await ctx.change_mode(
+            dev_id, target_mode, lambda progress, mode, message: bar.update(progress, message)
         )
-        if next_mode.isError():
-            click.echo("Error: {next_mode}")
-            return
-        bar.update(
-            1,
-            f"current: {ILCMode(next_mode.mode).name}"
-            if next_mode.mode in ILCMode
-            else f"current: {next_mode.mode}",
-        )
-        if next_mode.mode == current_mode.mode:
-            if current_mode.mode in ILCMode:
-                click.echo(f"Cannot transition - stuck in {ILCMode(current_mode.mode).name}")
-            else:
-                click.echo(f"Cannot transition - stuck in {current_mode.mode}")
-            return
-        current_mode = next_mode
-
-    click.echo(f"ILC {dev_id} cannot transition to mode {target_mode}")
 
 
 @cli.command()
@@ -427,18 +343,18 @@ async def force_actuator_read_booster_valve_dca_gains(ctx: CLIContext, address: 
 
 
 @cli.command()
-@click.argument("intel-hex", type=click.Path())
+@click.argument("intel-hex", type=click.Path(exists=True))
 @click.argument("address", type=int, default=None)
 @pass_ctx
 async def flash(ctx: CLIContext, intel_hex: click.Path, address: None | int) -> None:
     """Flash new ILC firmware."""
     dev_id = ctx.dev_id(address)
     if ctx.debug:
-        await flash_ilc(ctx.client, dev_id, IntelHex(intel_hex))
+        await ctx.flash(dev_id, IntelHex(intel_hex))
         return
 
     with click.progressbar(length=1000, show_eta=True, show_percent=True, item_show_func=str, width=0) as bar:
-        await flash_ilc(ctx.client, dev_id, IntelHex(intel_hex), bar.update)
+        await ctx.flash(dev_id, IntelHex(intel_hex), bar.update)
 
 
 @cli.command()
@@ -802,9 +718,133 @@ async def read_monitor_sensors(ctx: CLIContext, address: None | int) -> None:
         click.echo(f"Temperature {i}: {monitor.temperature[i]:.2f} °C")
 
 
+@cli.command("run")
+@click.option("--track", type=bool, is_flag=True)
+@click.argument("script", type=click.Path(exists=True))
+@click.argument("address", type=int, default=None)
+@pass_ctx
+async def run_script(ctx: CLIContext, track: bool, script: click.Path, address: None | int) -> None:
+    script_obj = Script(script)
+
+    header = f"Running script {pathlib.Path(script).resolve()}."
+    click.echo(header)
+    click.echo("-" * len(header))
+    click.echo()
+
+    def print_line(filename: str, lineno: int, line: str) -> bool:
+        click.echo(click.style(f"[{lineno:-5}]", fg="yellow", bold=True) + click.style(f" {line}", bold=True))
+        return True
+
+    if track:
+        await script_obj.run(ctx, ctx.dev_id(address), print_line)
+    else:
+        await script_obj.run(ctx, ctx.dev_id(address))
+
+
+async def process_command_line(ctx: CLIContext) -> None:
+    parser = argparse.ArgumentParser(description="Command line tool to communicate with ILCs.")
+    parser.add_argument("--serial", type=str, help="Connect to a serial port", default=None)
+    parser.add_argument("--tcp", type=str, help="Connect to TCP/IP. address:port", default=None)
+    parser.add_argument("-d", action="store_true", help="Start in debug mode.")
+    parser.add_argument("--address", type=int, help="Default command address.")
+    parser.add_argument("--script", type=click.Path(exists=True), help="Execute ILC script.", default=None)
+
+    args = parser.parse_args()
+
+    async def __run(args: list[str]) -> None:
+        await cli.main(args=args, standalone_mode=False, obj=ctx)
+
+    if args.serial is not None and args.tcp is not None:
+        click.echo(
+            click.style(
+                f"Cannot connect to both serial port {args.serial} and TCP/IP {args.tcp}. Please pass only "
+                "either --serial or --tcp, not both options.",
+                fg="red",
+            )
+        )
+        sys.exit(1)
+
+    if args.d:
+        await __run(["debug"])
+    if args.serial is not None:
+        await __run(["serial", args.serial])
+    if args.tcp is not None:
+        await __run(["tcp", *args.tcp.split(":")])
+    if args.address is not None:
+        await __run(["address", str(args.address)])
+    if args.script is not None:
+        await __run(["run", args.script])
+        sys.exit(0)
+
+
 async def main() -> None:
     # Initialize our custom click context container
     ctx_obj = CLIContext()
+
+    options: list[str] | None = None
+
+    if readline and hasattr(readline, "read_history_file"):
+        try:
+            readline.read_history_file(HISTORY_FILE)
+        except FileNotFoundError:
+            pass
+
+        def complete_path(text: str, path_type: click.Path) -> list[str]:
+            """Return matching filesystem paths respecting click.Path
+            settings."""
+            expanded = os.path.expanduser(text)
+            matches = []
+
+            for match in glob.glob(expanded + "*"):
+                is_dir = os.path.isdir(match)
+                if is_dir:
+                    # Always allow dirs so users can tab-complete into
+                    # subdirectories, or restrict with `path_type.dir_okay` if
+                    # you only want top-level files.
+                    matches.append(match + os.sep)
+                elif path_type.file_okay:
+                    matches.append(match)
+
+            return matches
+
+        def command_completer(text: str, state: int) -> str | None:
+            nonlocal options
+
+            if state == 0 or options is None:  # options is None silences len(options) on None
+                line = readline.get_line_buffer()
+                begidx = readline.get_begidx()
+
+                # Everything typed before the current word
+                before = line[:begidx].split()
+
+                # 1. Completing the command name (first token)
+                if not before:
+                    options = [cmd for cmd in cli.list_commands(ctx_obj) if cmd.startswith(text)]
+                else:
+                    # 2. Completing an argument for the given command
+                    cmd_name = before[0]
+                    cmd = cli.get_command(ctx_obj, cmd_name)
+                    if cmd is None:
+                        return None
+
+                    # Find positional arguments (click.Argument)
+                    args = [p for p in cmd.params if isinstance(p, click.Argument)]
+                    arg_index = len(before) - 1  # 0-based index of the current argument
+
+                    options = []
+                    if arg_index < len(args):
+                        param = args[arg_index]
+                        if isinstance(param.type, click.Path):
+                            options = complete_path(text, param.type)
+
+            return options[state] if state < len(options) else None
+
+        readline.set_completer(command_completer)
+        readline.set_completer_delims(" \t")
+        readline.parse_and_bind("tab: complete")
+
+    # Process command line
+    await process_command_line(ctx_obj)
 
     while True:
         try:
@@ -836,7 +876,10 @@ async def main() -> None:
             e.show()
         except click.BadArgumentUsage as e:
             e.show()
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt:
+            click.echo("\n")
+            continue
+        except EOFError:
             click.echo("\nExiting...")
             break
         finally:

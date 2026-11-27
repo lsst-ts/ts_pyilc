@@ -1,6 +1,6 @@
 # This file is part of ts_pyilc.
 #
-# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# Developed for the Vera C. Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -13,11 +13,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 __all__ = ["ILCMode"]
 
@@ -26,7 +26,7 @@ from enum import IntEnum
 
 from pymodbus.pdu import ModbusPDU
 
-from .utils import DEFAULT_ILC_ADDRESS, ILCFunction
+from .utils import DEFAULT_ILC_ADDRESS, ILCFunction, pdu_stringify
 
 
 class ILCMode(IntEnum):
@@ -40,6 +40,7 @@ class ILCMode(IntEnum):
     QUERY = 0xFFFF
 
 
+@pdu_stringify("mode")
 class ChangeILCMode(ModbusPDU):
     """Both ILC change mode request and response. The payload is the same, so
     one class can work for both request and response.
@@ -50,14 +51,13 @@ class ChangeILCMode(ModbusPDU):
         ILC address.
     new_mode : `int`, optional
         Desired mode. Construct command to transition to that mode if
-        current_mode is not provided. Note that the default, 0xFFFF, is a mode
-        query - function will return current system state.
+        current_mode is not provided. Note that the default, ILCMode.QUERY, is
+        a mode query - function will return current system state.
     current_mode : `int`, optional
-        If provided, construct ILCMode query to reach the given state.
+        If provided, construct ILCMode request to reach the given state.
     """
 
     function_code = ILCFunction.CHANGE_ILC_MODE
-    rtu_frame_size = 2
 
     def __init__(
         self,
@@ -87,8 +87,12 @@ class ChangeILCMode(ModbusPDU):
         else:
             self.mode = new_mode
 
-    def encode(self) -> bytes:
+    def x_encode(self) -> bytes:
         return struct.pack(">H", self.mode)
 
-    def decode(self, data: bytes) -> None:
+    def x_decode(self, data: bytes) -> None:
         self.mode = struct.unpack(">H", data)[0]
+
+    @classmethod
+    def x_calculateRtuFrameSize(cls, data: bytes) -> int:
+        return 6
